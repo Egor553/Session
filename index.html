@@ -275,7 +275,7 @@
                 const response = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
                 if (!response.ok) throw new Error();
             } catch (e) {
-                alert('Ошибка сохранения слотов');
+                alert('Ошибка сохранения слотов в таблицу');
             }
         }
 
