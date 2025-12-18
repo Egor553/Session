@@ -115,7 +115,7 @@
             background: #d0ebff;
             border: 2px solid #3498db;
             font-weight: 700;
-            color: #2c3e50; /* Чёткий чёрный цвет для текста */
+            color: #2c3e50;
         }
         .calendar-day.other-month {
             color: #bdc3c7;
@@ -132,9 +132,9 @@
             border: 2px solid #3498db;
             border-radius: 16px;
             cursor: pointer;
-            font-weight: 700; /* Жирный шрифт для времени */
-            color: #2c3e50; /* Тёмный цвет, не сливается */
-            font-size: 20px; /* Больший размер */
+            font-weight: 700;
+            color: #2c3e50;
+            font-size: 20px;
             transition: all 0.3s;
         }
         .time-slot-btn:hover {
@@ -189,7 +189,7 @@
             padding: 15px 40px;
         }
 
-        /* Админ-панель полноэкранная */
+        /* Админ-панель */
         #admin-fullscreen {
             position: fixed;
             top: 0;
@@ -290,7 +290,7 @@
         </div>
     </div>
 
-    <!-- Полноэкранная админ-панель -->
+    <!-- Админ-панель -->
     <div id="admin-fullscreen">
         <div id="admin-content">
             <button id="admin-back" onclick="closeAdminFullscreen()">← Назад</button>
@@ -344,7 +344,7 @@
     </div>
 
     <script>
-        const ADMIN_PASSWORD = 'admin123'; // Пароль для админ-панели
+        const ADMIN_PASSWORD = 'admin123'; // Пароль для входа в админку
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxXsSHntryFKMmR3QH4DfBWBUFMZL_mO0_YG6nUiBLws1pxVh0KA2_HleBUlBH9LtlxSw/exec';
 
         const SLOTS_SHEET_ID = '1Bqq3D0D1FBksioxcNIEQZbQyBXTKfj_KGW_bjpewCFw';
@@ -399,7 +399,7 @@
         function checkCity() {
             const input = document.getElementById('city-input').value.trim();
 
-            // Вход в админ-панель по паролю
+            // Вход в админку по паролю
             if (input === ADMIN_PASSWORD) {
                 document.getElementById('admin-fullscreen').style.display = 'flex';
                 listAllSlots();
@@ -410,7 +410,8 @@
             userCity = input;
             if (!userCity) return alert('Введите город');
 
-            hideAll();
+            resetAll(); // Полная очистка перед новым запросом
+
             const normalizedUser = normalize(userCity);
 
             let foundKey = null;
@@ -430,13 +431,25 @@
             } else {
                 showMessage('Пока что в твоём городе нет оффлайн-сессии 😔', 'no-offline');
                 document.getElementById('online-btn').style.display = 'block';
-                document.getElementById('online-btn').onclick = () => {
-                    currentType = 'online';
-                    currentKey = 'online';
-                    document.getElementById('calendar-container').style.display = 'block';
-                    renderCalendar();
-                };
+                document.getElementById('online-btn').onclick = startOnlineSession;
             }
+        }
+
+        function startOnlineSession() {
+            currentType = 'online';
+            currentKey = 'online';
+            resetAll();
+            document.getElementById('calendar-container').style.display = 'block';
+            renderCalendar();
+        }
+
+        function resetAll() {
+            hideAll();
+            document.getElementById('city-input').value = '';
+            selectedDate = null;
+            selectedSlot = null;
+            currentType = '';
+            currentKey = '';
         }
 
         function renderCalendar() {
@@ -569,12 +582,13 @@
 
         function closeConfirmation() {
             document.getElementById('confirmation-modal').style.display = 'none';
-            checkCity();
+            resetAll(); // Полная очистка после записи
         }
 
         function closeAdminFullscreen() {
             document.getElementById('admin-fullscreen').style.display = 'none';
             document.getElementById('city-input').value = '';
+            document.getElementById('city-input').focus();
         }
 
         function showMessage(text, type) {
@@ -589,9 +603,10 @@
             document.getElementById('online-btn').style.display = 'none';
             document.getElementById('calendar-container').style.display = 'none';
             document.getElementById('booking-form').style.display = 'none';
+            document.getElementById('time-slots').style.display = 'none';
         }
 
-        // Админ-функции
+        // Админ-функции (добавление слотов)
         async function addSingleSlot() {
             const type = document.getElementById('admin-type').value;
             const cityInput = document.getElementById('admin-city').value.trim();
@@ -669,4 +684,4 @@
         }
     </script>
 </body>
-</html>
+</html>м
