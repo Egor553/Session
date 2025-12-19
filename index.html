@@ -55,7 +55,6 @@
         .congrats { background: linear-gradient(135deg, #d5f5e3, #a8e6cf); color: #27ae60; }
         .no-offline { background: linear-gradient(135deg, #fffacd, #ffeb99); color: #f39c12; }
 
-        /* Плашка с городом сразу */
         #city-section {
             margin-top: 50px;
         }
@@ -79,7 +78,6 @@
             display: block;
         }
 
-        /* Календарь */
         #calendar-container {
             display: none;
             margin-top: 50px;
@@ -190,7 +188,6 @@
     <div class="container">
         <h1>🎯 Запись на сессию</h1>
 
-        <!-- Плашка с городом сразу -->
         <div id="city-section">
             <h2>В каком городе вы находитесь?</h2>
             <input type="text" id="city-input" placeholder="Например: Москва, Уфа, Казань">
@@ -323,7 +320,7 @@
                 return;
             }
 
-            resetAll();
+            hideAll();
 
             const normalizedUser = normalize(userCity);
 
@@ -349,6 +346,7 @@
             currentType = 'offline';
             currentKey = normalize(userCity);
             document.getElementById('choice-buttons').style.display = 'none';
+            document.getElementById('result-message').style.display = 'none';
             document.getElementById('calendar-container').style.display = 'block';
             renderCalendar();
         }
@@ -357,23 +355,12 @@
             currentType = 'online';
             currentKey = 'online';
             document.getElementById('choice-buttons').style.display = 'none';
+            document.getElementById('result-message').style.display = 'none';
             document.getElementById('calendar-container').style.display = 'block';
             renderCalendar();
         }
 
-        function resetAll() {
-            hideAll();
-            document.getElementById('city-input').value = '';
-            document.getElementById('city-input').focus();
-            selectedDate = null;
-            selectedSlot = null;
-            currentType = '';
-            currentKey = '';
-            userCity = '';
-        }
-
         function renderCalendar() {
-            // (код календаря — как в предыдущей версии)
             const year = currentMonth.getFullYear();
             const month = currentMonth.getMonth();
 
@@ -448,7 +435,71 @@
             document.getElementById('time-slots').style.display = 'block';
         }
 
-        // (остальные функции: prevMonth, nextMonth, submitBooking, closeConfirmation, showMessage, hideAll — как в предыдущей версии)
+        function prevMonth() {
+            currentMonth.setMonth(currentMonth.getMonth() - 1);
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+            renderCalendar();
+        }
+
+        async function submitBooking() {
+            const full_name = document.getElementById('full_name').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const email = document.getElementById('email').value.trim();
+
+            if (!full_name || !phone) {
+                alert('Заполните обязательные поля!');
+                return;
+            }
+
+            config.slots[currentKey] = config.slots[currentKey].filter(s => s !== selectedSlot);
+            if (config.slots[currentKey].length === 0) delete config.slots[currentKey];
+            await saveConfig();
+
+            const d = new Date(selectedSlot);
+            const formattedSlot = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) + ' в ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+            const formData = new FormData();
+            formData.append('type', currentType === 'online' ? 'Онлайн' : 'Оффлайн');
+            formData.append('city', currentType === 'online' ? 'Онлайн' : userCity);
+            formData.append('slot', selectedSlot);
+            formData.append('full_name', full_name);
+            formData.append('phone', phone);
+            formData.append('email', email || '-');
+            formData.append('timestamp', new Date().toISOString());
+
+            fetch(RECORDS_SCRIPT_URL, { method: 'POST', body: formData })
+                .then(response => {
+                    if (response.ok) {
+                        document.getElementById('confirm-slot').textContent = formattedSlot;
+                        document.getElementById('confirm-name').textContent = full_name;
+                        document.getElementById('confirm-phone').textContent = phone;
+                        document.getElementById('confirm-email').textContent = email || 'не указан';
+                        document.getElementById('confirmation-modal').style.display = 'flex';
+                        document.getElementById('booking-form').style.display = 'none';
+                        document.getElementById('time-slots').style.display = 'none';
+                    } else {
+                        alert('Ошибка отправки записи');
+                    }
+                })
+                .catch(() => alert('Ошибка сети'));
+        }
+
+        function closeConfirmation() {
+            document.getElementById('confirmation-modal').style.display = 'none';
+            resetAll();
+            document.getElementById('city-input').focus();
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('result-message');
+            msg.innerHTML = text;
+            msg.className = 'message ' + type;
+            msg.style.display = 'block';
+        }
 
         function hideAll() {
             document.getElementById('result-message').style.display = 'none';
@@ -458,10 +509,21 @@
             document.getElementById('time-slots').style.display = 'none';
         }
 
-        // Фокус на поле города при загрузке страницы
+        function resetAll() {
+            hideAll();
+            document.getElementById('city-input').value = '';
+            document.getElementById('city-input').focus();
+            selectedDate = null;
+            selectedSlot = null;
+            currentType = '';
+            currentKey = '';
+            userCity = '';
+        }
+
+        // Фокус на поле города при загрузке
         window.onload = () => {
             document.getElementById('city-input').focus();
         };
     </script>
 </body>
-    </html>
+</html>
