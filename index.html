@@ -344,8 +344,9 @@
     </div>
 
     <script>
-        const ADMIN_PASSWORD = 'admin123'; // Пароль для входа в админку
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwgF7ZgsAGLSltO33bK_GTD-gyVu28RjDjLwYwAg5Z28oQFK5oC36vRxcxO7jTZ_tHzMw/exec';
+        const ADMIN_PASSWORD = 'admin123';
+        const SLOTS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzncapqHVS99r6sJuDFqouNErL6owLkwDKr_EYR1TqxCXI2q-26wdjbBq0SphzWC7Go9w/exec'; // слоты
+        const RECORDS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbykW95ePGpIZ3Nary4TcKffbZht_8Ty-jm9snVLFKZYCPsklpcKJGu8ni8CluuaxFmqXg/exec'; // записи
 
         const SLOTS_SHEET_ID = '1Bqq3D0D1FBksioxcNIEQZbQyBXTKfj_KGW_bjpewCFw';
 
@@ -378,7 +379,7 @@
             formData.append('data', JSON.stringify(config));
 
             try {
-                const response = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData });
+                const response = await fetch(SLOTS_SCRIPT_URL, { method: 'POST', body: formData });
                 if (!response.ok) throw new Error();
             } catch (e) {
                 alert('Ошибка сохранения слотов');
@@ -399,7 +400,6 @@
         function checkCity() {
             const input = document.getElementById('city-input').value.trim();
 
-            // Вход в админку по паролю
             if (input === ADMIN_PASSWORD) {
                 document.getElementById('admin-fullscreen').style.display = 'flex';
                 listAllSlots();
@@ -410,7 +410,7 @@
             userCity = input;
             if (!userCity) return alert('Введите город');
 
-            resetAll(); // Полная очистка перед новым запросом
+            resetAll();
 
             const normalizedUser = normalize(userCity);
 
@@ -431,16 +431,14 @@
             } else {
                 showMessage('Пока что в твоём городе нет оффлайн-сессии 😔', 'no-offline');
                 document.getElementById('online-btn').style.display = 'block';
-                document.getElementById('online-btn').onclick = startOnlineSession;
+                document.getElementById('online-btn').onclick = () => {
+                    currentType = 'online';
+                    currentKey = 'online';
+                    resetAll();
+                    document.getElementById('calendar-container').style.display = 'block';
+                    renderCalendar();
+                };
             }
-        }
-
-        function startOnlineSession() {
-            currentType = 'online';
-            currentKey = 'online';
-            resetAll();
-            document.getElementById('calendar-container').style.display = 'block';
-            renderCalendar();
         }
 
         function resetAll() {
@@ -563,7 +561,7 @@
             formData.append('email', email || '-');
             formData.append('timestamp', new Date().toISOString());
 
-            fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: formData })
+            fetch(RECORDS_SCRIPT_URL, { method: 'POST', body: formData })
                 .then(response => {
                     if (response.ok) {
                         document.getElementById('confirm-slot').textContent = formattedSlot;
@@ -582,12 +580,13 @@
 
         function closeConfirmation() {
             document.getElementById('confirmation-modal').style.display = 'none';
-            resetAll(); // Полная очистка после записи
+            resetAll();
+            document.getElementById('city-input').focus();
         }
 
         function closeAdminFullscreen() {
             document.getElementById('admin-fullscreen').style.display = 'none';
-            document.getElementById('city-input').value = '';
+            resetAll();
             document.getElementById('city-input').focus();
         }
 
@@ -606,7 +605,7 @@
             document.getElementById('time-slots').style.display = 'none';
         }
 
-        // Админ-функции (добавление слотов)
+        // Админ-функции
         async function addSingleSlot() {
             const type = document.getElementById('admin-type').value;
             const cityInput = document.getElementById('admin-city').value.trim();
@@ -684,4 +683,4 @@
         }
     </script>
 </body>
-</html>м
+</html>
