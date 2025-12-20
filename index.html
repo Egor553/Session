@@ -382,6 +382,7 @@
                     currentType = 'online';
                     currentKey = 'online';
                     hideAll();
+                    showMessage('Выберите время для онлайн-сессии', 'congrats');
                     showSlots('online');
                 };
             }
@@ -481,7 +482,7 @@
             document.getElementById('booking-form').style.display = 'none';
         }
 
-        // Админ-панель
+        // Админ-панель (как в твоём оригинале)
         function closeAdminFullscreen() {
             document.getElementById('admin-fullscreen').style.display = 'none';
             document.getElementById('city-input').value = '';
@@ -564,7 +565,6 @@
             }
         }
 
-        // Фокус на поле при загрузке
         window.onload = () => {
             document.getElementById('city-input').focus();
         };
