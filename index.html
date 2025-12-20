@@ -35,7 +35,7 @@
             font-size: 18px;
             text-align: left;
         }
-        input[type="text"], input[type="tel"], input[type="email"] {
+        input[type="text"] {
             width: 100%;
             padding: 18px;
             border: 2px solid #e0e0e0;
@@ -77,34 +77,70 @@
         .congrats { background: linear-gradient(135deg, #d5f5e3, #a8e6cf); color: #27ae60; }
         .no-offline { background: linear-gradient(135deg, #fffacd, #ffeb99); color: #f39c12; }
 
-        #slots-container {
+        /* Календарь */
+        #calendar-container {
             display: none;
-            margin: 60px 0;
+            margin-top: 50px;
         }
-        #slots-list {
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .calendar-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 30px;
-            margin-top: 40px;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            text-align: center;
         }
-        .slot-card {
-            background: linear-gradient(135deg, #e8f4fd, #d0ebff);
-            border: 3px solid #3498db;
-            border-radius: 24px;
-            padding: 40px 20px;
+        .calendar-day-name {
+            font-weight: 600;
+            color: #34495e;
+            padding: 10px;
+        }
+        .calendar-day {
+            padding: 15px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+        .calendar-day:hover {
+            background: #e0e7ff;
+        }
+        .calendar-day.has-slots {
+            background: #d0ebff;
+            border: 2px solid #3498db;
             font-weight: 700;
             color: #2c3e50;
+        }
+        .calendar-day.other-month {
+            color: #bdc3c7;
+        }
+        #time-slots {
+            margin-top: 40px;
+            display: none;
+        }
+        .time-slot-btn {
+            display: inline-block;
+            padding: 15px 25px;
+            margin: 10px;
+            background: #e8f4fd;
+            border: 2px solid #3498db;
+            border-radius: 16px;
             cursor: pointer;
-            transition: all 0.4s ease;
-            box-shadow: 0 10px 25px rgba(52,152,219,0.15);
+            font-weight: 700;
+            color: #2c3e50;
+            font-size: 20px;
+            transition: all 0.3s;
         }
-        .slot-card:hover {
-            transform: translateY(-15px) scale(1.05);
-            box-shadow: 0 25px 50px rgba(52,152,219,0.3);
+        .time-slot-btn:hover {
+            background: #3498db;
+            color: white;
         }
-        .slot-date { font-size: 26px; margin-bottom: 15px; }
-        .slot-time { font-size: 38px; line-height: 1.2; }
-
         #booking-form {
             display: none;
             margin-top: 70px;
@@ -113,15 +149,12 @@
             border-radius: 24px;
             box-shadow: 0 15px 35px rgba(0,0,0,0.1);
         }
-
         #online-btn {
             width: 100%;
             background: linear-gradient(135deg, #27ae60, #2ecc71);
             font-size: 22px;
             padding: 22px;
-            display: none;
         }
-
         #confirmation-modal {
             position: fixed;
             top: 0;
@@ -153,6 +186,11 @@
         #confirmation-close {
             background: #3498db;
             margin-top: 30px;
+            padding: 15px 40px;
+        }
+        #to-bot-btn {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            margin-top: 20px;
             padding: 15px 40px;
         }
 
@@ -204,11 +242,29 @@
         <button onclick="checkCity()">Проверить наличие сессии</button>
 
         <div id="result-message" class="message" style="display:none;"></div>
-        <button id="online-btn">Записаться на онлайн-сессию</button>
+        <button id="online-btn" style="display:none;">Записаться на онлайн-сессию</button>
 
-        <div id="slots-container">
-            <h2>Выберите удобное время</h2>
-            <div id="slots-list"></div>
+        <div id="calendar-container">
+            <div class="calendar-header">
+                <button onclick="prevMonth()">←</button>
+                <span id="month-year"></span>
+                <button onclick="nextMonth()">→</button>
+            </div>
+            <div class="calendar-grid">
+                <div class="calendar-day-name">Пн</div>
+                <div class="calendar-day-name">Вт</div>
+                <div class="calendar-day-name">Ср</div>
+                <div class="calendar-day-name">Чт</div>
+                <div class="calendar-day-name">Пт</div>
+                <div class="calendar-day-name">Сб</div>
+                <div class="calendar-day-name">Вс</div>
+            </div>
+            <div id="calendar-days" class="calendar-grid"></div>
+
+            <div id="time-slots">
+                <h3>Доступное время на <span id="selected-date-text"></span></h3>
+                <div id="time-buttons"></div>
+            </div>
         </div>
 
         <div id="booking-form">
@@ -236,10 +292,11 @@
             <p><strong>Email:</strong> <span id="confirm-email"></span></p>
             <p>Мы скоро свяжемся с вами!</p>
             <button id="confirmation-close" onclick="closeConfirmation()">Закрыть</button>
+            <button id="to-bot-btn" onclick="goToBot()">Перейти в бот для анкеты</button>
         </div>
     </div>
 
-    <!-- Админ-панель -->
+    <!-- Полноэкранная админ-панель -->
     <div id="admin-fullscreen">
         <div id="admin-content">
             <button id="admin-back" onclick="closeAdminFullscreen()">← Назад</button>
@@ -300,11 +357,8 @@
 
         let config = { slots: { online: [] } };
 
-        let currentType = '';
-        let currentKey = '';
-        let selectedSlot = null;
-
-        let userCity = '';
+        let currentMonth = new Date();
+        let selectedDate = null;
 
         async function loadConfig() {
             try {
@@ -339,6 +393,11 @@
 
         loadConfig();
 
+        let userCity = '';
+        let currentType = '';
+        let currentKey = '';
+        let selectedSlot = null;
+
         function normalize(str) {
             return str.trim().toLowerCase().replace(/\s+/g, '');
         }
@@ -349,17 +408,14 @@
             if (input === ADMIN_PASSWORD) {
                 document.getElementById('admin-fullscreen').style.display = 'flex';
                 listAllSlots();
+                document.getElementById('city-input').value = '';
                 return;
             }
 
             userCity = input;
-            if (!userCity) {
-                alert('Введите город');
-                return;
-            }
+            if (!userCity) return alert('Введите город');
 
             hideAll();
-
             const normalizedUser = normalize(userCity);
 
             let foundKey = null;
@@ -374,49 +430,104 @@
                 currentType = 'offline';
                 currentKey = foundKey;
                 showMessage('Поздравляем! 🎉 В твоём городе есть оффлайн-сессия!', 'congrats');
-                showSlots(foundKey);
+                document.getElementById('calendar-container').style.display = 'block';
+                renderCalendar();
             } else {
                 showMessage('Пока что в твоём городе нет оффлайн-сессии 😔', 'no-offline');
                 document.getElementById('online-btn').style.display = 'block';
                 document.getElementById('online-btn').onclick = () => {
                     currentType = 'online';
                     currentKey = 'online';
-                    hideAll();
-                    showMessage('Выберите время для онлайн-сессии', 'congrats');
-                    showSlots('online');
+                    document.getElementById('online-btn').style.display = 'none';
+                    document.getElementById('calendar-container').style.display = 'block';
+                    renderCalendar();
                 };
             }
         }
 
-        function showSlots(key) {
-            const slots = config.slots[key] || [];
-            const list = document.getElementById('slots-list');
-            list.innerHTML = '';
+        function renderCalendar() {
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth();
 
-            if (slots.length === 0) {
-                list.innerHTML = '<p style="font-size:22px;color:#95a5a6;">Нет доступных слотов</p>';
+            document.getElementById('month-year').textContent = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+            const daysGrid = document.getElementById('calendar-days');
+            daysGrid.innerHTML = '';
+
+            const startDay = firstDay === 0 ? 6 : firstDay - 1;
+            for (let i = startDay - 1; i >= 0; i--) {
+                const day = daysInPrevMonth - i;
+                const div = document.createElement('div');
+                div.className = 'calendar-day other-month';
+                div.textContent = day;
+                daysGrid.appendChild(div);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const hasSlots = config.slots[currentKey]?.some(s => s.startsWith(dateStr));
+
+                const div = document.createElement('div');
+                div.className = 'calendar-day' + (hasSlots ? ' has-slots' : '');
+                div.textContent = day;
+                div.onclick = () => selectDay(dateStr);
+                daysGrid.appendChild(div);
+            }
+
+            const totalCells = daysGrid.children.length;
+            const remaining = 42 - totalCells;
+            for (let day = 1; day <= remaining; day++) {
+                const div = document.createElement('div');
+                div.className = 'calendar-day other-month';
+                div.textContent = day;
+                daysGrid.appendChild(div);
+            }
+        }
+
+        function selectDay(dateStr) {
+            selectedDate = dateStr;
+            document.getElementById('selected-date-text').textContent = new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+            const timeButtons = document.getElementById('time-buttons');
+            timeButtons.innerHTML = '';
+
+            const daySlots = config.slots[currentKey]?.filter(s => s.startsWith(dateStr)) || [];
+
+            if (daySlots.length === 0) {
+                timeButtons.innerHTML = '<p>Нет доступного времени на этот день</p>';
             } else {
-                slots.forEach(slot => {
-                    const card = document.createElement('div');
-                    card.className = 'slot-card';
-                    const d = new Date(slot);
-                    const dateStr = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-                    const timeStr = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                    card.innerHTML = `
-                        <div class="slot-date">${dateStr}</div>
-                        <div class="slot-time">${timeStr}</div>
-                    `;
-                    card.onclick = () => {
+                daySlots.forEach(slot => {
+                    const time = slot.slice(11, 16);
+                    const btn = document.createElement('button');
+                    btn.className = 'time-slot-btn';
+                    btn.textContent = time;
+                    btn.onclick = () => {
                         selectedSlot = slot;
-                        document.getElementById('selected-slot').textContent = `${dateStr} в ${timeStr}`;
+                        const d = new Date(slot);
+                        const formatted = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) + ' в ' + time;
+                        document.getElementById('selected-slot').textContent = formatted;
                         document.getElementById('booking-form').style.display = 'block';
                         document.getElementById('full_name').focus();
                     };
-                    list.appendChild(card);
+                    timeButtons.appendChild(btn);
                 });
             }
 
-            document.getElementById('slots-container').style.display = 'block';
+            document.getElementById('time-slots').style.display = 'block';
+        }
+
+        function prevMonth() {
+            currentMonth.setMonth(currentMonth.getMonth() - 1);
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+            renderCalendar();
         }
 
         async function submitBooking() {
@@ -454,6 +565,7 @@
                         document.getElementById('confirm-email').textContent = email || 'не указан';
                         document.getElementById('confirmation-modal').style.display = 'flex';
                         document.getElementById('booking-form').style.display = 'none';
+                        document.getElementById('time-slots').style.display = 'none';
                     } else {
                         alert('Ошибка отправки');
                     }
@@ -468,6 +580,10 @@
             document.getElementById('city-input').focus();
         }
 
+        function goToBot() {
+            window.open('https://t.me/your_bot', '_blank'); // Замени на ссылку на твой Salebot
+        }
+
         function showMessage(text, type) {
             const msg = document.getElementById('result-message');
             msg.innerHTML = text;
@@ -478,11 +594,12 @@
         function hideAll() {
             document.getElementById('result-message').style.display = 'none';
             document.getElementById('online-btn').style.display = 'none';
-            document.getElementById('slots-container').style.display = 'none';
+            document.getElementById('calendar-container').style.display = 'none';
             document.getElementById('booking-form').style.display = 'none';
+            document.getElementById('time-slots').style.display = 'none';
         }
 
-        // Админ-панель (как в твоём оригинале)
+        // Админ-панель
         function closeAdminFullscreen() {
             document.getElementById('admin-fullscreen').style.display = 'none';
             document.getElementById('city-input').value = '';
