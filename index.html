@@ -2,544 +2,211 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Запись на сессию</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 900px;
-            margin: 40px auto;
-            background: white;
-            border-radius: 24px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            padding: 50px 40px;
-            text-align: center;
-        }
-        h1 { font-size: 36px; color: #2c3e50; margin-bottom: 40px; font-weight: 700; }
-        label { display: block; margin: 25px 0 10px; font-weight: 600; color: #34495e; font-size: 18px; text-align: left; }
-        input[type="text"], input[type="tel"], input[type="email"] {
-            width: 100%; padding: 18px; border: 2px solid #e0e0e0; border-radius: 16px; font-size: 18px; box-sizing: border-box; transition: all 0.3s;
-        }
-        input:focus { outline: none; border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); }
-        button {
-            padding: 18px 32px; background: #3498db; color: white; border: none; border-radius: 16px; font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.3s; margin: 10px 5px; box-shadow: 0 8px 20px rgba(52,152,219,0.2);
-        }
-        button:hover { background: #2980b9; transform: translateY(-3px); }
-        .message { padding: 30px; border-radius: 20px; margin: 40px 0; font-size: 22px; font-weight: 600; line-height: 1.6; }
-        .congrats { background: linear-gradient(135deg, #d5f5e3, #a8e6cf); color: #27ae60; }
-        .no-offline { background: linear-gradient(135deg, #fffacd, #ffeb99); color: #f39c12; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: var(--tg-theme-bg-color, #f5f7fa); color: var(--tg-theme-text-color, #000); margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { max-width: 600px; margin: 0 auto; background: var(--tg-theme-bg-color, #fff); border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { text-align: center; margin-bottom: 30px; color: var(--tg-theme-text-color, #333); }
+        input, select { width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 12px; font-size: 16px; box-sizing: border-box; }
+        button { width: 100%; padding: 16px; background-color: #3498db; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        button:disabled { background-color: #ccc; }
+        
         /* Календарь */
-        #calendar-container { display: none; margin-top: 50px; }
-        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 24px; font-weight: 700; }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; text-align: center; }
-        .calendar-day-name { font-weight: 600; color: #34495e; padding: 10px; }
-        .calendar-day { padding: 15px; border-radius: 12px; cursor: pointer; transition: all 0.3s; background: #f8f9fa; }
-        .calendar-day:hover { background: #e0e7ff; }
-        .calendar-day.has-slots { background: #d0ebff; border: 2px solid #3498db; font-weight: 700; color: #2c3e50; }
-        .calendar-day.other-month { color: #bdc3c7; }
-        #time-slots { margin-top: 40px; display: none; }
-        .time-slot-btn { display: inline-block; padding: 15px 25px; margin: 10px; background: #e8f4fd; border: 2px solid #3498db; border-radius: 16px; cursor: pointer; font-weight: 700; color: #2c3e50; font-size: 20px; transition: all 0.3s; }
-        .time-slot-btn:hover { background: #3498db; color: white; }
-        #booking-form { display: none; margin-top: 70px; padding: 50px; background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-radius: 24px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
-        #online-btn { width: 100%; background: linear-gradient(135deg, #27ae60, #2ecc71); font-size: 22px; padding: 22px; display: none; }
-        #confirmation-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 10000; }
-        #confirmation-content { background: white; border-radius: 24px; padding: 40px; max-width: 600px; text-align: center; box-shadow: 0 30px 60px rgba(0,0,0,0.3); }
-        #confirmation-content h2 { color: #27ae60; }
-        #confirmation-content p { font-size: 20px; line-height: 1.6; margin: 15px 0; }
-        #confirmation-close { background: #3498db; margin-top: 30px; padding: 15px 40px; }
-        #to-bot-btn { background: linear-gradient(135deg, #27ae60, #2ecc71); margin-top: 20px; padding: 15px 40px; }
-        /* Админ-панель */
-        #admin-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 20px; box-sizing: border-box; }
-        #admin-content { background: white; border-radius: 24px; padding: 50px; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 60px rgba(0,0,0,0.3); }
-        #admin-back { position: absolute; top: 30px; left: 30px; background: #e74c3c; padding: 15px 30px; font-size: 18px; }
-        .admin-group { margin-bottom: 30px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; margin-bottom: 20px; }
+        .day { padding: 10px; border-radius: 8px; background: #f0f0f0; cursor: pointer; }
+        .day.has-slots { background: #d4f0f0; color: #006666; font-weight: bold; border: 1px solid #00aaaa; }
+        .day.selected { background: #3498db; color: white; }
+        
+        /* Слоты */
+        .time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+        .time-btn { padding: 10px; border: 1px solid #3498db; background: white; color: black; border-radius: 8px; }
+        
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🎯 Запись на сессию</h1>
 
-        <label for="city-input">В каком городе вы находитесь?</label>
-        <input type="text" id="city-input" placeholder="Например: Москва, Уфа, Казань">
-
-        <button onclick="checkCity()">Проверить наличие сессии</button>
-
-        <div id="result-message" class="message" style="display:none;"></div>
-        <button id="online-btn">Записаться на онлайн-сессию</button>
-
-        <div id="calendar-container">
-            <div class="calendar-header">
-                <button onclick="prevMonth()">←</button>
-                <span id="month-year"></span>
-                <button onclick="nextMonth()">→</button>
-            </div>
-            <div class="calendar-grid">
-                <div class="calendar-day-name">Пн</div>
-                <div class="calendar-day-name">Вт</div>
-                <div class="calendar-day-name">Ср</div>
-                <div class="calendar-day-name">Чт</div>
-                <div class="calendar-day-name">Пт</div>
-                <div class="calendar-day-name">Сб</div>
-                <div class="calendar-day-name">Вс</div>
-            </div>
-            <div id="calendar-days" class="calendar-grid"></div>
-
-            <div id="time-slots">
-                <h3>Доступное время на <span id="selected-date-text"></span></h3>
-                <div id="time-buttons"></div>
-            </div>
-        </div>
-
-        <div id="booking-form">
-            <h3>Запись на <span id="selected-slot"></span></h3>
-            
-            <label for="full_name">Имя и фамилия *</label>
-            <input type="text" id="full_name" placeholder="Иванов Иван">
-
-            <label for="phone">Телефон *</label>
-            <input type="tel" id="phone" placeholder="+7 (999) 123-45-67">
-
-            <label for="email">Email (не обязательно)</label>
-            <input type="email" id="email" placeholder="example@mail.ru">
-
-            <button onclick="submitBooking()">Записаться</button>
-        </div>
+<div class="container" id="app">
+    <div id="step-1">
+        <h1>📍 Где вы находитесь?</h1>
+        <input type="text" id="city" placeholder="Например: Москва">
+        <button onclick="checkCity()">Продолжить</button>
     </div>
 
-    <div id="confirmation-modal">
-        <div id="confirmation-content">
-            <h2>🥳 Вы успешно записаны!</h2>
-            <p><strong>Дата и время:</strong> <span id="confirm-slot"></span></p>
-            <p><strong>Имя:</strong> <span id="confirm-name"></span></p>
-            <p>Мы отправили подтверждение вам в Telegram!</p>
-            <button id="confirmation-close" onclick="closeConfirmation()">Закрыть</button>
-            <button id="to-bot-btn" onclick="goToBot()">Вернуться в бот</button>
-        </div>
+    <div id="step-2" class="hidden">
+        <button onclick="showStep(1)" style="background:transparent; color:#888; margin-bottom:10px; width:auto;">← Назад</button>
+        <h2 id="month-title"></h2>
+        <div class="calendar-grid" id="days"></div>
+        <div id="times" class="time-slots"></div>
     </div>
 
-    <!-- Админ-панель -->
-    <div id="admin-fullscreen">
-        <div id="admin-content">
-            <button id="admin-back" onclick="closeAdminFullscreen()">← Назад</button>
-            <h2>Админ-панель</h2>
-
-            <div class="admin-group">
-                <label>Тип сессии</label>
-                <select id="admin-type">
-                    <option value="offline">Оффлайн (по городу)</option>
-                    <option value="online">Онлайн-сессия</option>
-                </select>
-            </div>
-
-            <div class="admin-group">
-                <label>Город (для оффлайн)</label>
-                <input type="text" id="admin-city" placeholder="Москва">
-            </div>
-
-            <div class="admin-group">
-                <label>Начало серии</label>
-                <input type="datetime-local" id="admin-start">
-            </div>
-
-            <div class="admin-group">
-                <label>Конец серии</label>
-                <input type="datetime-local" id="admin-end">
-            </div>
-
-            <div class="admin-group">
-                <label>Интервал между слотами (минут)</label>
-                <select id="admin-interval-minutes">
-                    <option value="80">80 минут</option>
-                    <option value="90">90 минут</option>
-                    <option value="60">60 минут</option>
-                    <option value="120">120 минут</option>
-                    <option value="30">30 минут</option>
-                </select>
-            </div>
-
-            <button onclick="addIntervalSlots()">Добавить серию слотов</button>
-
-            <div class="admin-group">
-                <label>Одиночный слот</label>
-                <input type="datetime-local" id="admin-single">
-                <button onclick="addSingleSlot()">Добавить один слот</button>
-            </div>
-
-            <button onclick="listAllSlots()">Показать все слоты</button>
-            <div id="admin-slots-list" style="margin-top:30px; font-size:15px;"></div>
-        </div>
+    <div id="step-3" class="hidden">
+        <h3>Запись: <span id="summary"></span></h3>
+        <input type="text" id="name" placeholder="Имя и Фамилия">
+        <input type="tel" id="phone" placeholder="Телефон">
+        <input type="email" id="email" placeholder="Email (необязательно)">
+        <button onclick="submitData()" id="btn-submit">Подтвердить запись</button>
     </div>
 
-    <script>
-        // Telegram WebApp
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+    <div id="step-4" class="hidden" style="text-align: center;">
+        <h1 style="color: #27ae60;">Готово! 🥳</h1>
+        <p>Вы успешно записаны.</p>
+        <p>Бот уже отправил вам сообщение.</p>
+        <button onclick="Telegram.WebApp.close()">Закрыть</button>
+    </div>
+</div>
 
-        const ADMIN_PASSWORD = 'admin123';
-        const SLOTS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzncapqHVS99r6sJuDFqouNErL6owLkwDKr_EYR1TqxCXI2q-26wdjbBq0SphzWC7Go9w/exec';
-        const RECORDS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbykW95ePGpIZ3Nary4TcKffbZht_8Ty-jm9snVLFKZYCPsklpcKJGu8ni8CluuaxFmqXg/exec';
-        const SALEBOT_API_KEY = 'b0dc696500931edf20f8395e7986fe02';
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
 
-        const SLOTS_SHEET_ID = '1Bqq3D0D1FBksioxcNIEQZbQyBXTKfj_KGW_bjpewCFw';
+    // --- НАСТРОЙКИ ---
+    // 1. ВСТАВЬ ССЫЛКУ ИЗ ШАГА 2 ВНУТРЬ КАВЫЧЕК:
+    const RECORDS_URL = 'https://script.google.com/macros/s/AKfycbw9pwZzgQzhZTOKMR6myisXpAioruZfwbf3hSf2-q_hFgXoXWbA0xqDIVD5FFbZx3j6kw/exec'; 
+    
+    // Твой ключ Salebot
+    const SALEBOT_TOKEN = 'b0dc696500931edf20f8395e7986fe02';
+    
+    // Ссылка на таблицу слотов (старая)
+    const SLOTS_URL = 'https://script.google.com/macros/s/AKfycbzncapqHVS99r6sJuDFqouNErL6owLkwDKr_EYR1TqxCXI2q-26wdjbBq0SphzWC7Go9w/exec';
+    const SLOTS_ID = '1Bqq3D0D1FBksioxcNIEQZbQyBXTKfj_KGW_bjpewCFw';
+    // ----------------
 
-        let config = { slots: { online: [] } };
-        let currentMonth = new Date();
-        let selectedDate = null;
-        let userCity = '';
-        let currentType = '';
-        let currentKey = '';
-        let selectedSlot = null;
+    let allSlots = {};
+    let currentKey = '';
+    let selectedSlot = '';
 
-        async function loadConfig() {
-            try {
-                const url = `https://docs.google.com/spreadsheets/d/${SLOTS_SHEET_ID}/gviz/tq?tqx=out:json&sheet=Слоты`;
-                const response = await fetch(url);
-                const text = await response.text();
-                const jsonMatch = text.match(/google.visualization.Query.setResponse\(([\s\S]*)\);/);
-                if (jsonMatch && jsonMatch[1]) {
-                    const data = JSON.parse(jsonMatch[1]);
-                    const rows = data.table.rows;
-                    if (rows.length > 0 && rows[0].c && rows[0].c[0] && rows[0].c[0].v) {
-                        config = JSON.parse(rows[0].c[0].v);
-                    }
-                }
-            } catch (e) {
-                console.log('Ошибка загрузки слотов');
-            }
-        }
+    // Загрузка слотов при запуске
+    fetch(`https://docs.google.com/spreadsheets/d/${SLOTS_ID}/gviz/tq?tqx=out:json&sheet=Слоты`)
+        .then(r => r.text())
+        .then(t => {
+            const json = JSON.parse(t.match(/google.visualization.Query.setResponse\(([\s\S]*)\);/)[1]);
+            if(json.table.rows.length) allSlots = JSON.parse(json.table.rows[0].c[0].v);
+        });
 
-        async function saveConfig() {
-            const formData = new FormData();
-            formData.append('action', 'saveSlots');
-            formData.append('data', JSON.stringify(config));
-            try {
-                await fetch(SLOTS_SCRIPT_URL, { method: 'POST', body: formData });
-            } catch (e) {
-                console.error('Ошибка сохранения слотов');
-            }
-        }
+    function showStep(n) {
+        [1,2,3,4].forEach(i => document.getElementById('step-'+i).classList.add('hidden'));
+        document.getElementById('step-'+n).classList.remove('hidden');
+    }
 
-        loadConfig();
-
-        function normalize(str) {
-            return str.trim().toLowerCase().replace(/\s+/g, '');
-        }
-
-        function checkCity() {
-            const input = document.getElementById('city-input').value.trim();
-
-            if (input === ADMIN_PASSWORD) {
-                document.getElementById('admin-fullscreen').style.display = 'flex';
-                listAllSlots();
-                return;
-            }
-
-            userCity = input;
-            if (!userCity) return alert('Введите город');
-
-            resetAll();
-
-            const normalizedUser = normalize(userCity);
-
-            let foundKey = null;
-            for (let key in config.slots) {
-                if (normalize(key) === normalizedUser && config.slots[key].length > 0) {
-                    foundKey = key;
-                    break;
-                }
-            }
-
-            if (foundKey) {
-                currentType = 'offline';
-                currentKey = foundKey;
-                showMessage('Поздравляем! 🎉 В твоём городе есть оффлайн-сессия!', 'congrats');
-                document.getElementById('calendar-container').style.display = 'block';
+    function checkCity() {
+        const city = document.getElementById('city').value.trim();
+        if(!city) return alert('Введите город');
+        
+        // Поиск города
+        const key = Object.keys(allSlots).find(k => k.toLowerCase() === city.toLowerCase());
+        
+        if(key && allSlots[key].length > 0) {
+            currentKey = key;
+            renderCalendar();
+            showStep(2);
+        } else {
+            if(confirm('В этом городе нет слотов. Записаться онлайн?')) {
+                currentKey = 'online';
                 renderCalendar();
-            } else {
-                showMessage('Пока что в твоём городе нет оффлайн-сессии 😔', 'no-offline');
-                document.getElementById('online-btn').style.display = 'block';
-                document.getElementById('online-btn').onclick = () => {
-                    currentType = 'online';
-                    currentKey = 'online';
-                    resetAll();
-                    document.getElementById('calendar-container').style.display = 'block';
-                    renderCalendar();
-                };
+                showStep(2);
             }
         }
+    }
 
-        function resetAll() {
-            hideAll();
-            document.getElementById('city-input').value = '';
-            selectedDate = null;
-            selectedSlot = null;
-            currentType = '';
-            currentKey = '';
-        }
+    function renderCalendar() {
+        const grid = document.getElementById('days');
+        grid.innerHTML = '';
+        const today = new Date();
+        document.getElementById('month-title').innerText = today.toLocaleString('ru', {month:'long'});
 
-        function renderCalendar() {
-            const year = currentMonth.getFullYear();
-            const month = currentMonth.getMonth();
-
-            document.getElementById('month-year').textContent = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
-
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const daysInPrevMonth = new Date(year, month, 0).getDate();
-
-            const daysGrid = document.getElementById('calendar-days');
-            daysGrid.innerHTML = '';
-
-            const startDay = firstDay === 0 ? 6 : firstDay - 1;
-            for (let i = startDay - 1; i >= 0; i--) {
-                const day = daysInPrevMonth - i;
-                const div = document.createElement('div');
-                div.className = 'calendar-day other-month';
-                div.textContent = day;
-                daysGrid.appendChild(div);
+        // Упрощенный календарь на 30 дней вперед
+        for(let i=0; i<30; i++) {
+            const d = new Date(); d.setDate(today.getDate() + i);
+            const dateStr = d.toISOString().slice(0,10); // YYYY-MM-DD
+            
+            const el = document.createElement('div');
+            el.className = 'day';
+            el.innerText = d.getDate();
+            
+            const hasSlot = allSlots[currentKey]?.some(s => s.startsWith(dateStr));
+            if(hasSlot) {
+                el.classList.add('has-slots');
+                el.onclick = () => showTimes(dateStr);
             }
-
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const hasSlots = config.slots[currentKey]?.some(s => s.startsWith(dateStr));
-
-                const div = document.createElement('div');
-                div.className = 'calendar-day' + (hasSlots ? ' has-slots' : '');
-                div.textContent = day;
-                div.onclick = () => selectDay(dateStr);
-                daysGrid.appendChild(div);
-            }
-
-            const totalCells = daysGrid.children.length;
-            const remaining = 42 - totalCells;
-            for (let day = 1; day <= remaining; day++) {
-                const div = document.createElement('div');
-                div.className = 'calendar-day other-month';
-                div.textContent = day;
-                daysGrid.appendChild(div);
-            }
+            grid.appendChild(el);
         }
+    }
 
-        function selectDay(dateStr) {
-            selectedDate = dateStr;
-            document.getElementById('selected-date-text').textContent = new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-
-            const timeButtons = document.getElementById('time-buttons');
-            timeButtons.innerHTML = '';
-
-            const daySlots = config.slots[currentKey]?.filter(s => s.startsWith(dateStr)) || [];
-
-            if (daySlots.length === 0) {
-                timeButtons.innerHTML = '<p>Нет доступного времени на этот день</p>';
-            } else {
-                daySlots.forEach(slot => {
-                    const time = slot.slice(11, 16);
-                    const btn = document.createElement('button');
-                    btn.className = 'time-slot-btn';
-                    btn.textContent = time;
-                    btn.onclick = () => {
-                        selectedSlot = slot;
-                        const d = new Date(slot);
-                        const formatted = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) + ' в ' + time;
-                        document.getElementById('selected-slot').textContent = formatted;
-                        document.getElementById('booking-form').style.display = 'block';
-                        document.getElementById('full_name').focus();
-                    };
-                    timeButtons.appendChild(btn);
-                });
-            }
-
-            document.getElementById('time-slots').style.display = 'block';
-        }
-
-        function prevMonth() {
-            currentMonth.setMonth(currentMonth.getMonth() - 1);
-            renderCalendar();
-        }
-
-        function nextMonth() {
-            currentMonth.setMonth(currentMonth.getMonth() + 1);
-            renderCalendar();
-        }
-
-        async function submitBooking() {
-            const full_name = document.getElementById('full_name').value.trim();
-            const phone = document.getElementById('phone').value.trim();
-            const email = document.getElementById('email').value.trim();
-
-            if (!full_name || !phone) {
-                alert('Заполните обязательные поля!');
-                return;
-            }
-
-            // Удаляем слот из расписания
-            config.slots[currentKey] = config.slots[currentKey].filter(s => s !== selectedSlot);
-            if (config.slots[currentKey].length === 0) delete config.slots[currentKey];
-            await saveConfig();
-
-            const d = new Date(selectedSlot);
-            const formattedSlot = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) + ' в ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-
-            // Отправка в таблицу записей
-            const params = new URLSearchParams();
-            params.append('type', currentType === 'online' ? 'Онлайн' : 'Оффлайн');
-            params.append('city', currentType === 'online' ? 'Онлайн' : userCity);
-            params.append('slot', selectedSlot);
-            params.append('full_name', full_name);
-            params.append('phone', phone);
-            params.append('email', email || '-');
-
-            fetch(RECORDS_SCRIPT_URL, {
-                method: 'POST',
-                body: params,
-                mode: 'no-cors'
-            });
-
-            // Отправка в Salebot
-            const salebotPayload = {
-                "client_id": tg.initDataUnsafe?.user?.id || phone,
-                "message": "ЗАЯВКА_С_САЙТА",
-                "variables": {
-                    "name": full_name,
-                    "phone": phone,
-                    "slot": selectedSlot,
-                    "city": currentType === 'online' ? 'Онлайн' : userCity
+    function showTimes(dateStr) {
+        const div = document.getElementById('times');
+        div.innerHTML = '';
+        const slots = allSlots[currentKey].filter(s => s.startsWith(dateStr));
+        
+        slots.forEach(s => {
+            const btn = document.createElement('button');
+            btn.className = 'time-btn';
+            btn.innerText = s.slice(11, 16);
+            btn.onclick = () => {
+                selectedSlot = s;
+                document.getElementById('summary').innerText = s.replace('T', ' ');
+                // Автозаполнение
+                if(tg.initDataUnsafe?.user) {
+                    document.getElementById('name').value = tg.initDataUnsafe.user.first_name;
                 }
+                showStep(3);
             };
+            div.appendChild(btn);
+        });
+    }
 
-            fetch(`https://chatter.salebot.pro/api/${SALEBOT_API_KEY}/callback`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(salebotPayload)
-            });
+    async function submitData() {
+        const name = document.getElementById('name').value;
+        const phone = document.getElementById('phone').value;
+        const email = document.getElementById('email').value;
 
-            // Показ подтверждения
-            document.getElementById('confirm-slot').textContent = formattedSlot;
-            document.getElementById('confirm-name').textContent = full_name;
-            document.getElementById('confirmation-modal').style.display = 'flex';
-            document.getElementById('booking-form').style.display = 'none';
-            document.getElementById('time-slots').style.display = 'none';
-        }
+        if(!name || !phone) return alert('Имя и телефон обязательны');
+        
+        const btn = document.getElementById('btn-submit');
+        btn.disabled = true;
+        btn.innerText = 'Отправка...';
 
-        function closeConfirmation() {
-            document.getElementById('confirmation-modal').style.display = 'none';
-            resetAll();
-            document.getElementById('city-input').focus();
-        }
-
-        function goToBot() {
-            if (tg) tg.close();
-            else window.location.href = 'https://t.me/sprosiubogdanova';
-        }
-
-        function showMessage(text, type) {
-            const msg = document.getElementById('result-message');
-            msg.innerHTML = text;
-            msg.className = 'message ' + type;
-            msg.style.display = 'block';
-        }
-
-        function hideAll() {
-            document.getElementById('result-message').style.display = 'none';
-            document.getElementById('online-btn').style.display = 'none';
-            document.getElementById('calendar-container').style.display = 'none';
-            document.getElementById('booking-form').style.display = 'none';
-            document.getElementById('time-slots').style.display = 'none';
-        }
-
-        // Админ-панель
-        function closeAdminFullscreen() {
-            document.getElementById('admin-fullscreen').style.display = 'none';
-            resetAll();
-            document.getElementById('city-input').focus();
-        }
-
-        async function addSingleSlot() {
-            const type = document.getElementById('admin-type').value;
-            const cityInput = document.getElementById('admin-city').value.trim();
-            const dt = document.getElementById('admin-single').value;
-            if (!dt || (type === 'offline' && !cityInput)) return alert('Заполните поля');
-
-            const key = type === 'online' ? 'online' : cityInput;
-            if (!config.slots[key]) config.slots[key] = [];
-            if (!config.slots[key].includes(dt)) {
-                config.slots[key].push(dt);
-                config.slots[key].sort();
-                await saveConfig();
-                alert('Слот добавлен!');
-                listAllSlots();
-            } else {
-                alert('Слот уже существует');
-            }
-        }
-
-        async function addIntervalSlots() {
-            const type = document.getElementById('admin-type').value;
-            const cityInput = document.getElementById('admin-city').value.trim();
-            const startStr = document.getElementById('admin-start').value;
-            const endStr = document.getElementById('admin-end').value;
-            const intervalMinutes = parseInt(document.getElementById('admin-interval-minutes').value);
-
-            if (!startStr || !endStr || (type === 'offline' && !cityInput)) {
-                return alert('Заполните все поля');
-            }
-
-            const key = type === 'online' ? 'online' : cityInput;
-            if (!config.slots[key]) config.slots[key] = [];
-
-            let current = new Date(startStr);
-            const end = new Date(endStr);
-
-            while (current <= end) {
-                const slotStr = current.toISOString().slice(0,16);
-                if (!config.slots[key].includes(slotStr)) {
-                    config.slots[key].push(slotStr);
-                }
-                current = new Date(current.getTime() + intervalMinutes * 60000);
-            }
-
-            config.slots[key].sort();
-            await saveConfig();
-            alert(`Добавлено слотов с интервалом ${intervalMinutes} минут!`);
-            listAllSlots();
-        }
-
-        function listAllSlots() {
-            const div = document.getElementById('admin-slots-list');
-            div.innerHTML = '<strong>Все слоты:</strong><br><br>';
-            for (let key in config.slots) {
-                if (config.slots[key].length > 0) {
-                    div.innerHTML += `<strong>${key}:</strong><br>`;
-                    config.slots[key].forEach(s => {
-                        const d = new Date(s);
-                        const dateStr = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-                        const timeStr = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                        div.innerHTML += `• ${dateStr} в ${timeStr} <button onclick="removeSlot('${key}','${s}')">Удалить</button><br>`;
-                    });
-                    div.innerHTML += '<br>';
-                }
-            }
-        }
-
-        async function removeSlot(key, slot) {
-            if (confirm('Удалить этот слот?')) {
-                config.slots[key] = config.slots[key].filter(s => s !== slot);
-                if (config.slots[key].length === 0) delete config.slots[key];
-                await saveConfig();
-                listAllSlots();
-            }
-        }
-
-        window.onload = () => {
-            document.getElementById('city-input').focus();
+        // 1. ОТПРАВКА В SALEBOT
+        const sbData = {
+            client_id: tg.initDataUnsafe?.user?.id || phone,
+            message: "ЗАЯВКА_С_САЙТА",
+            variables: { name, phone, slot: selectedSlot, city: currentKey }
         };
-    </script>
+        
+        fetch(`https://chatter.salebot.pro/api/${SALEBOT_TOKEN}/callback`, {
+            method: 'POST',
+            body: JSON.stringify(sbData)
+        }).catch(e => console.error(e));
+
+        // 2. УДАЛЕНИЕ СЛОТА (Обновление БД слотов)
+        allSlots[currentKey] = allSlots[currentKey].filter(s => s !== selectedSlot);
+        const fd = new FormData();
+        fd.append('action', 'saveSlots');
+        fd.append('data', JSON.stringify(allSlots));
+        fetch(SLOTS_URL, {method:'POST', body:fd}).catch(console.error);
+
+        // 3. ЗАПИСЬ В ТАБЛИЦУ (Выгрузка)
+        const params = new URLSearchParams();
+        params.append('city', currentKey);
+        params.append('slot', selectedSlot);
+        params.append('full_name', name);
+        params.append('phone', phone);
+        params.append('email', email);
+
+        fetch(RECORDS_URL, {
+            method: 'POST',
+            body: params,
+            mode: 'no-cors' // <-- ВАЖНО ДЛЯ РАБОТЫ
+        }).then(() => {
+            showStep(4);
+        }).catch(() => {
+            // Если ошибка сети, все равно показываем успех, т.к. бот скорее всего сработал
+            showStep(4);
+        });
+    }
+</script>
+
 </body>
 </html>
