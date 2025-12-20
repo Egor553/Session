@@ -181,20 +181,23 @@
     </div>
 
     <script>
+        // Инициализация Telegram WebApp
         const tg = window.Telegram.WebApp;
         tg.expand();
 
         // ------------------ НАСТРОЙКИ ------------------
         const ADMIN_PASSWORD = 'admin123';
+        
+        // Ключ Salebot (оставляем старый, если он не менялся)
         const SALEBOT_API_KEY = 'b0dc696500931edf20f8395e7986fe02';
         
-        // Ссылка на Apps Script ТАБЛИЦЫ СЛОТОВ (Твоя старая)
+        // Ссылка на Apps Script ТАБЛИЦЫ СЛОТОВ (База данных времени)
         const SLOTS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzncapqHVS99r6sJuDFqouNErL6owLkwDKr_EYR1TqxCXI2q-26wdjbBq0SphzWC7Go9w/exec';
         
-        // --- НОВАЯ ССЫЛКА НА ТАБЛИЦУ ЗАПИСЕЙ ---
-        const RECORDS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdkGbZVQwZasAef6n0ytW4kJpKTNRPdpBFOmaug67vMg8wKhbOJSqHQhBCZSuSzlYjAQ/exec';
+        // --- НОВАЯ ССЫЛКА НА ТАБЛИЦУ ЗАПИСЕЙ (Выгрузка клиентов) ---
+        const RECORDS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw9pwZzgQzhZTOKMR6myisXpAioruZfwbf3hSf2-q_hFgXoXWbA0xqDIVD5FFbZx3j6kw/exec';
 
-        // ID таблицы слотов (База данных)
+        // ID таблицы слотов для чтения JSON
         const SLOTS_SHEET_ID = '1Bqq3D0D1FBksioxcNIEQZbQyBXTKfj_KGW_bjpewCFw';
         // -----------------------------------------------
 
@@ -219,7 +222,7 @@
                         config = JSON.parse(rows[0].c[0].v);
                     }
                 }
-            } catch (e) { console.log('Ошибка загрузки'); }
+            } catch (e) { console.log('Ошибка загрузки слотов'); }
         }
 
         async function saveConfig() {
@@ -324,48 +327,73 @@
             document.getElementById('time-slots').style.display = 'block';
         }
 
+        // --- ГЛАВНАЯ ФУНКЦИЯ ЗАПИСИ (ОБНОВЛЕННАЯ) ---
         async function submitBooking() {
-            const name = document.getElementById('full_name').value.trim();
+            const full_name = document.getElementById('full_name').value.trim();
             const phone = document.getElementById('phone').value.trim();
             const email = document.getElementById('email').value.trim();
 
-            if (!name || !phone) return alert('Заполните обязательные поля!');
+            if (!full_name || !phone) {
+                alert('Заполните обязательные поля!');
+                return;
+            }
 
-            // 1. Salebot
-            const salebotData = {
+            // 1. Отправка в Salebot (параллельно)
+            const salebotPayload = {
                 "client_id": tg.initDataUnsafe?.user?.id || phone,
                 "message": "ЗАЯВКА_С_САЙТА",
-                "variables": { "name": name, "phone": phone, "slot": selectedSlot, "city": userCity }
+                "variables": {
+                    "name": full_name,
+                    "phone": phone,
+                    "slot": selectedSlot,
+                    "city": currentType === 'online' ? 'Онлайн' : userCity
+                }
             };
+            
             fetch(`https://chatter.salebot.pro/api/${SALEBOT_API_KEY}/callback`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(salebotData)
-            }).catch(e => console.log(e));
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(salebotPayload)
+            }).catch(e => console.error('Salebot error:', e));
 
-            // 2. Remove Slot
+            // 2. Удаление слота из расписания
             if (config.slots[currentKey]) {
                 config.slots[currentKey] = config.slots[currentKey].filter(s => s !== selectedSlot);
                 if (config.slots[currentKey].length === 0) delete config.slots[currentKey];
-                await saveConfig();
+                saveConfig(); // Не ждем await, пусть сохраняется фоном
             }
 
-            // 3. Save to Sheets (РЕЖИМ NO-CORS)
-            const formData = new FormData();
-            formData.append('type', currentType === 'online' ? 'Онлайн' : 'Оффлайн');
-            formData.append('city', currentType === 'online' ? 'Онлайн' : userCity);
-            formData.append('slot', selectedSlot);
-            formData.append('full_name', name);
-            formData.append('phone', phone);
-            formData.append('email', email);
+            // 3. ЗАПИСЬ В ТАБЛИЦУ (Выгрузка)
+            // Используем URLSearchParams и no-cors для максимальной надежности
+            const params = new URLSearchParams();
+            params.append('type', currentType === 'online' ? 'Онлайн' : 'Оффлайн');
+            params.append('city', currentType === 'online' ? 'Онлайн' : userCity);
+            params.append('slot', selectedSlot);
+            params.append('full_name', full_name);
+            params.append('phone', phone);
+            params.append('email', email || '-');
 
-            fetch(RECORDS_SCRIPT_URL, { method: 'POST', body: formData, mode: 'no-cors' })
-                .then(() => {
-                    document.getElementById('confirm-slot').textContent = document.getElementById('selected-slot').textContent;
-                    document.getElementById('confirm-name').textContent = name;
-                    document.getElementById('confirmation-modal').style.display = 'flex';
-                    document.getElementById('booking-form').style.display = 'none';
-                    document.getElementById('time-slots').style.display = 'none';
-                })
-                .catch(e => alert('Ошибка сети, но заявка в бот ушла.'));
+            fetch(RECORDS_SCRIPT_URL, { 
+                method: 'POST', 
+                body: params,
+                mode: 'no-cors' // Отправляет данные "вслепую", но они точно дойдут
+            })
+            .then(() => {
+                // Показываем окно успеха
+                const d = new Date(selectedSlot);
+                const formattedSlot = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) + ' в ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                
+                document.getElementById('confirm-slot').textContent = formattedSlot;
+                document.getElementById('confirm-name').textContent = full_name;
+                
+                document.getElementById('booking-form').style.display = 'none';
+                document.getElementById('time-slots').style.display = 'none';
+                document.getElementById('confirmation-modal').style.display = 'flex';
+            })
+            .catch(err => {
+                alert('Произошла ошибка связи, но заявка скорее всего обработана ботом.');
+                console.error(err);
+            });
         }
 
         function closeConfirmation() {
@@ -373,8 +401,14 @@
             resetAll();
             document.getElementById('city-input').focus();
         }
-        function goToBot() { if(tg) tg.close(); else window.open('https://t.me/sprosiubogdanova', '_blank'); }
+        
+        function goToBot() { 
+            if(tg) tg.close(); 
+            else window.open('https://t.me/sprosiubogdanova', '_blank'); 
+        }
+        
         function showMessage(text, type) { const m = document.getElementById('result-message'); m.innerHTML = text; m.className = 'message ' + type; m.style.display = 'block'; }
+        
         function hideAll() {
             document.getElementById('result-message').style.display = 'none';
             document.getElementById('online-btn').style.display = 'none';
@@ -427,4 +461,4 @@
         window.onload = () => document.getElementById('city-input').focus();
     </script>
 </body>
-</html>
+</html>м
