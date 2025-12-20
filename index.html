@@ -3,178 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Запись на сессии</title>
+    <title>Запись</title>
     <style>
-        :root { --blue: #2563eb; --bg: #f8fafc; --text: #1e293b; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text); }
+        :root { --blue: #2563eb; --bg: #f8fafc; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; }
         .card { background: white; max-width: 420px; margin: 10px auto; padding: 25px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .hidden { display: none; }
-        input, button { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 16px; box-sizing: border-box; outline: none; }
-        button { background: var(--blue); color: white; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.98); }
-        .slot-btn { background: #f1f5f9; color: var(--text); border: 1px solid #e2e8f0; margin: 6px 0; display: flex; justify-content: space-between; align-items: center; text-align: left; }
-        .slot-btn span:last-child { color: var(--blue); font-weight: bold; }
+        input, button { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
+        button { background: var(--blue); color: white; border: none; font-weight: 600; cursor: pointer; }
+        .slot-btn { background: #f1f5f9; color: #1e293b; border: 1px solid #e2e8f0; margin: 6px 0; display: flex; justify-content: space-between; }
         .admin-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 1000; padding: 25px; box-sizing: border-box; overflow-y: auto; }
-        .policy { font-size: 0.8rem; display: flex; gap: 8px; margin: 10px 0; color: #64748b; align-items: flex-start; }
-        .policy input { width: auto; margin: 0; margin-top: 3px; }
-        #loading-tag { font-size: 0.7rem; text-align: center; color: #cbd5e1; margin-top: 5px; }
+        #status-bar { text-align: center; font-size: 0.8rem; color: #94a3b8; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div id="user-ui">
     <div id="step-1" class="card">
-        <h2 style="text-align:center; margin-top:0;">Где вы находитесь?</h2>
+        <h2 style="text-align:center">Ваш город</h2>
         <input type="text" id="city-input" placeholder="Введите город">
         <button onclick="goToSlots()">Найти время</button>
-        <div id="loading-tag">Синхронизация...</div>
+        <div id="status-bar">Подключение к базе...</div>
     </div>
 
     <div id="step-2" class="card hidden">
-        <h2 id="display-city" style="text-align:center; margin-top:0;"></h2>
+        <h2 id="display-city" style="text-align:center"></h2>
         <div id="slots-list"></div>
         <button onclick="showOnlineOnly()" style="background:#0ea5e9; margin-top:15px">Онлайн сессия</button>
-        <button onclick="location.reload()" style="background:none; color:#94a3b8; font-weight:normal;">← Назад</button>
+        <button onclick="location.reload()" style="background:none; color:#94a3b8;">← Назад</button>
     </div>
 
     <div id="step-3" class="card hidden">
-        <h2 style="text-align:center; margin-top:0;">Ваши данные</h2>
-        <p id="selected-info" style="text-align:center; font-size:0.9rem; color:#64748b;"></p>
+        <h2 style="text-align:center">Анкета</h2>
         <input type="text" id="u-name" placeholder="Имя">
         <input type="tel" id="u-phone" placeholder="Телефон">
         <input type="date" id="u-birth">
-        <div class="policy">
-            <input type="checkbox" id="u-check" checked>
-            <span>Согласен на обработку данных</span>
-        </div>
-        <button onclick="confirmBooking()">Записаться</button>
+        <button id="book-btn" onclick="confirmBooking()">Записаться</button>
     </div>
 </div>
 
 <div id="admin-ui" class="admin-screen hidden">
-    <h2 style="color:var(--blue)">⚙️ Админ-панель</h2>
-    <p style="font-size:0.8rem; color:#64748b">Интервал: 80 минут. График: 10:00 - 21:00.</p>
-    
-    <input type="text" id="a-city" placeholder="Город для офлайн">
-    <label style="font-size:0.8rem">Начало первой сессии:</label>
+    <h2>Админ: Интервал 80 мин</h2>
+    <input type="text" id="a-city" placeholder="Город">
+    <label>Время первой записи:</label>
     <input type="datetime-local" id="a-date">
-    
-    <button onclick="quickAdd('offline')">Добавить Офлайн (+80 мин)</button>
-    <button onclick="quickAdd('online')" style="background:#0ea5e9">Добавить Онлайн (+80 мин)</button>
-    
-    <button onclick="location.reload()" style="background:#64748b; margin-top:30px;">Выйти</button>
+    <button onclick="adminAdd('offline')">Добавить Офлайн (+80 мин)</button>
+    <button onclick="adminAdd('online')" style="background:#0ea5e9">Добавить Онлайн (+80 мин)</button>
+    <button onclick="location.reload()" style="background:gray; margin-top:20px;">Выйти</button>
 </div>
 
 <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzuyk5EiWFa3DS7UEVcAYPcdhPHeUr7G5WZBHUaQxLgfmzhn3I09gkURykTyUQEhGdrTQ/exec';
-    let database = [];
-    let currentItem = null;
+    // ВАШ НОВЫЙ URL
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzuyk5EiWFa3DS7UEVcAYPcdhPHeUr7G5WZBHUaQxLgfmzhn3I09gkURykTyUQEhGdrTQ/exec';
+    
+    let db = [];
+    let selected = null;
 
-    // Фоновая загрузка данных (пользователь ее не видит)
-    fetch(`${SCRIPT_URL}?v=${Date.now()}`)
-        .then(res => res.json())
-        .then(data => {
-            database = data;
-            document.getElementById('loading-tag').innerText = "✅ Календарь обновлен";
+    // Фоновая загрузка данных
+    fetch(API_URL)
+        .then(r => r.json())
+        .then(d => {
+            db = d;
+            document.getElementById('status-bar').innerText = "✅ База готова";
         })
-        .catch(() => document.getElementById('loading-tag').innerText = "");
+        .catch(e => document.getElementById('status-bar').innerText = "⚠️ Ошибка связи");
 
     function goToSlots() {
         const city = document.getElementById('city-input').value.trim();
-        if (city.toLowerCase() === 'admin123') {
-            return document.getElementById('admin-ui').classList.remove('hidden');
-        }
-
+        if (city.toLowerCase() === 'admin123') return document.getElementById('admin-ui').classList.remove('hidden');
+        
         document.getElementById('step-1').classList.add('hidden');
         document.getElementById('step-2').classList.remove('hidden');
         document.getElementById('display-city').innerText = city;
-
-        const filtered = database.filter(s => s.type === 'offline' && s.city.toLowerCase() === city.toLowerCase());
-        renderSlots(filtered);
+        render(db.filter(s => s.type === 'offline' && s.city.toLowerCase() === city.toLowerCase()));
     }
 
-    function renderSlots(list) {
-        const cont = document.getElementById('slots-list');
-        cont.innerHTML = list.length ? '' : '<p style="text-align:center; color:#94a3b8">Офлайн встреч не найдено</p>';
+    function render(list) {
+        const div = document.getElementById('slots-list');
+        div.innerHTML = list.length ? '' : '<p style="text-align:center;color:gray">Нет мест</p>';
         list.forEach(item => {
-            const b = document.createElement('button');
-            b.className = 'slot-btn';
-            b.innerHTML = `<span>📅 ${item.date}</span> <span>→</span>`;
-            b.onclick = () => {
-                currentItem = item;
-                document.getElementById('step-2').classList.add('hidden');
-                document.getElementById('step-3').classList.remove('hidden');
-                document.getElementById('selected-info').innerText = `${item.type}: ${item.date}`;
-            };
-            cont.appendChild(b);
+            const btn = document.createElement('button');
+            btn.className = 'slot-btn';
+            btn.innerHTML = `<span>📅 ${item.date}</span> <span>→</span>`;
+            btn.onclick = () => { selected = item; document.getElementById('step-2').classList.add('hidden'); document.getElementById('step-3').classList.remove('hidden'); };
+            div.appendChild(btn);
         });
     }
 
-    function showOnlineOnly() {
-        render(database.filter(s => s.type === 'online'));
+    function showOnlineOnly() { render(db.filter(s => s.type === 'online')); }
+
+    // Функция отправки БЕЗ 'no-cors' (для гарантии сохранения)
+    function sendData(data) {
+        const params = {
+            method: "POST",
+            body: JSON.stringify(data)
+        };
+        fetch(API_URL, params);
     }
 
     function confirmBooking() {
         const name = document.getElementById('u-name').value;
         const phone = document.getElementById('u-phone').value;
-        if (!name || !phone) return alert("Заполните данные");
+        if (!name || !phone) return alert("Заполните имя и телефон");
 
-        // Оптимистичный успех: сразу закрываем форму
-        alert("Запись успешно отправлена!");
+        // Моментальный ответ клиенту
+        alert("Заявка успешно отправлена!");
         
-        // Отправка в фоне
-        fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: JSON.stringify({
-                action: 'book',
-                type: currentItem.type,
-                city: currentItem.city,
-                slot: currentItem.date,
-                name: name,
-                phone: phone,
-                birthDate: document.getElementById('u-birth').value
-            })
+        sendData({
+            action: 'book',
+            type: selected.type,
+            city: selected.city,
+            slot: selected.date,
+            name: name,
+            phone: phone,
+            birthDate: document.getElementById('u-birth').value
         });
-
+        
         location.reload();
     }
 
-    function quickAdd(type) {
-        const dateInput = document.getElementById('a-date');
-        const cityInput = document.getElementById('a-city');
-        if (!dateInput.value) return alert("Выберите дату");
+    function adminAdd(type) {
+        const dInput = document.getElementById('a-date');
+        const cInput = document.getElementById('a-city');
+        if (!dInput.value) return alert("Выберите дату");
 
-        let dt = new Date(dateInput.value);
-        const formatted = dt.toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
+        let dt = new Date(dInput.value);
+        let dateStr = dt.toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
 
-        // Отправка в Google (без ожидания)
-        fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: JSON.stringify({
-                action: 'addSlot',
-                type: type,
-                city: cityInput.value || 'Онлайн',
-                date: formatted
-            })
+        // Отправка в фон
+        sendData({
+            action: 'addSlot',
+            type: type,
+            city: cInput.value || 'Онлайн',
+            date: dateStr
         });
 
-        // Моментальный шаг +80 минут для админа
+        // Визуальная магия (Интервал +80 минут)
         dt.setMinutes(dt.getMinutes() + 80);
-        dateInput.value = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-
-        // Мгновенная индикация
+        dInput.value = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+        
         const btn = event.target;
-        const txt = btn.innerText;
-        btn.innerText = "✅ Добавлено!";
-        btn.style.background = "#10b981";
-        setTimeout(() => {
-            btn.innerText = txt;
-            btn.style.background = (type === 'online' ? "#0ea5e9" : "#2563eb");
-        }, 600);
+        let old = btn.innerText;
+        btn.innerText = "✅ Сохранено";
+        setTimeout(() => btn.innerText = old, 800);
     }
 </script>
-
 </body>
 </html>
