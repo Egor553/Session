@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Запись</title>
+    <title>Запись на сессии</title>
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text); }
         .card { background: white; max-width: 450px; margin: 10px auto; padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .hidden { display: none; }
         .full-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; background: white; padding: 20px; box-sizing: border-box; overflow-y: auto; }
-        
         h2 { margin-top: 0; color: var(--primary); text-align: center; font-size: 1.3rem; }
         input, button { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
         button { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; }
         .slot-card { background: #f1f5f9; padding: 12px; border-radius: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid var(--primary); }
         .policy { font-size: 0.8rem; display: flex; gap: 8px; margin: 10px 0; color: #64748b; }
         .policy input { width: auto; margin: 0; }
-        #status-info { font-size: 0.8rem; text-align: center; color: #94a3b8; margin-top: 5px; }
+        .admin-info { font-size: 0.85rem; color: #64748b; background: #f1f5f9; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -25,56 +24,67 @@
 <div id="main-app">
     <div id="step-city" class="card">
         <h2>Где вы находитесь?</h2>
-        <input type="text" id="city-input" placeholder="Ваш город (например: Астана)">
+        <input type="text" id="city-input" placeholder="Ваш город">
         <button onclick="checkCity()">Продолжить</button>
-        <div id="status-info">Обновление календаря...</div>
+        <div id="status-info" style="text-align:center; font-size:0.7rem; color:#94a3b8; margin-top:10px;">Обновление базы...</div>
     </div>
 
     <div id="step-slots" class="card hidden">
-        <h2 id="slots-title">Загрузка...</h2>
+        <h2 id="slots-title"></h2>
         <div id="slots-container"></div>
-        <button id="online-alt-btn" style="background:#0ea5e9" onclick="renderView('online')">Посмотреть онлайн сессии</button>
+        <button id="online-alt-btn" style="background:#0ea5e9" onclick="renderView('online')">Онлайн сессии</button>
         <button onclick="location.reload()" style="background:none; color:#64748b; font-size: 0.8rem;">← Назад</button>
     </div>
 
     <div id="step-form" class="card hidden">
         <h2>Данные для записи</h2>
-        <p id="summary" style="font-weight:bold; text-align:center; color:#475569;"></p>
-        <input type="text" id="user-name" placeholder="Ваше имя">
+        <p id="summary" style="font-weight:bold; text-align:center;"></p>
+        <input type="text" id="user-name" placeholder="Имя">
         <input type="tel" id="user-phone" placeholder="Телефон">
-        <label style="font-size:0.75rem; margin-left:5px">Дата рождения:</label>
+        <label style="font-size:0.7rem; margin-left:5px">Дата рождения:</label>
         <input type="date" id="user-birth">
         <div class="policy">
             <input type="checkbox" id="policy-check">
-            <span>Согласен с правилами обработки данных</span>
+            <span>Согласен с политикой обработки данных</span>
         </div>
-        <button id="submit-btn" onclick="submitBooking()">Подтвердить запись</button>
+        <button id="submit-btn" onclick="submitBooking()">Записаться</button>
     </div>
 </div>
 
 <div id="admin-panel" class="full-screen hidden">
-    <h2>Панель администратора</h2>
-    <input type="text" id="admin-city" placeholder="Город">
-    <input type="datetime-local" id="admin-date">
-    <button onclick="sendToTable('offline')">Добавить Офлайн</button>
-    <button onclick="sendToTable('online')" style="background:#0ea5e9">Добавить Онлайн</button>
-    <button onclick="location.reload()" style="background:#64748b; margin-top:20px;">Закрыть</button>
+    <div style="max-width: 500px; margin: 0 auto;">
+        <h2>⚙️ Панель управления</h2>
+        <div class="admin-info">
+            • Одна сессия: <b>80 минут</b><br>
+            • Рабочее время: <b>10:00 — 21:00</b>
+        </div>
+        
+        <input type="text" id="admin-city" placeholder="Город для офлайн">
+        <label style="font-size: 0.8rem;">Время начала сессии:</label>
+        <input type="datetime-local" id="admin-date">
+        
+        <button onclick="sendToTable('offline')">Добавить Офлайн (80 мин)</button>
+        <button onclick="sendToTable('online')" style="background:#0ea5e9">Добавить Онлайн (80 мин)</button>
+        
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        <button onclick="location.reload()" style="background:#64748b;">Закрыть и обновить сайт</button>
+    </div>
 </div>
 
 <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbzuyk5EiWFa3DS7UEVcAYPcdhPHeUr7G5WZBHUaQxLgfmzhn3I09gkURykTyUQEhGdrTQ/exec';
     let allSlots = [];
     let isLoaded = false;
+    let selectedSlot = null;
 
-    // Загрузка идет в фоне сразу после открытия страницы
     (async function init() {
         try {
             const response = await fetch(`${API_URL}?v=${Date.now()}`);
             allSlots = await response.json();
             isLoaded = true;
-            document.getElementById('status-info').innerText = "✅ Календарь обновлен";
+            document.getElementById('status-info').innerText = "✅ База актуальна";
         } catch (e) {
-            document.getElementById('status-info').innerText = "⚠️ Проблема с сетью";
+            document.getElementById('status-info').innerText = "⚠️ Ошибка сети";
         }
     })();
 
@@ -85,39 +95,27 @@
             document.getElementById('admin-panel').classList.remove('hidden');
             return;
         }
-
-        if (!isLoaded) {
-            alert("Пожалуйста, подождите секунду, данные загружаются...");
-            return;
-        }
-
+        if (!isLoaded) return alert("Загружаем данные...");
+        
         document.getElementById('step-city').classList.add('hidden');
         document.getElementById('step-slots').classList.remove('hidden');
-        
         const citySlots = allSlots.filter(s => s.type === 'offline' && s.city.toLowerCase() === val.toLowerCase());
-        
-        if (citySlots.length > 0) {
-            document.getElementById('slots-title').innerText = "Есть места в г. " + val;
-            renderList(citySlots);
-        } else {
-            document.getElementById('slots-title').innerText = "В г. " + val + " мест пока нет";
-            renderList([]);
-        }
+        document.getElementById('slots-title').innerText = citySlots.length > 0 ? "Доступно в г. " + val : "В г. " + val + " мест нет";
+        renderList(citySlots);
     }
 
     function renderView(type) {
-        const list = allSlots.filter(s => s.type === type);
+        renderList(allSlots.filter(s => s.type === type));
         document.getElementById('slots-title').innerText = type === 'online' ? "Онлайн сессии" : "Офлайн";
-        renderList(list);
     }
 
     function renderList(list) {
         const cont = document.getElementById('slots-container');
-        cont.innerHTML = list.length ? '' : '<p style="text-align:center; font-size:0.9rem; color:#64748b">Выберите онлайн формат ниже:</p>';
+        cont.innerHTML = list.length ? '' : '<p style="text-align:center; color:#64748b">Выберите онлайн формат:</p>';
         list.forEach(s => {
             const d = document.createElement('div');
             d.className = 'slot-card';
-            d.innerHTML = `<span>📅 ${s.date}</span> <button style="width:auto" onclick="openForm('${s.id}')">Записаться</button>`;
+            d.innerHTML = `<span>📅 ${s.date}</span> <button style="width:auto" onclick="openForm('${s.id}')">Выбрать</button>`;
             cont.appendChild(d);
         });
     }
@@ -132,38 +130,54 @@
     async function submitBooking() {
         const name = document.getElementById('user-name').value;
         const phone = document.getElementById('user-phone').value;
-        const policy = document.getElementById('policy-check').checked;
-        if(!name || !phone || !policy) return alert("Заполните Имя, Телефон и галочку!");
-
-        const btn = document.getElementById('submit-btn');
-        btn.disabled = true; btn.innerText = "Минутку...";
-
-        const data = {
-            action: "book",
-            type: selectedSlot.type,
-            city: selectedSlot.city,
-            slot: selectedSlot.date,
-            name: name, phone: phone, birthDate: document.getElementById('user-birth').value
-        };
-
+        if(!name || !phone || !document.getElementById('policy-check').checked) return alert("Заполните все данные!");
+        
+        document.getElementById('submit-btn').disabled = true;
+        const data = { action: "book", type: selectedSlot.type, city: selectedSlot.city, slot: selectedSlot.date, name, phone, birthDate: document.getElementById('user-birth').value };
         await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
-        alert("Запись прошла успешно!");
+        alert("Запись подтверждена!");
         location.reload();
     }
 
+    // ЛОГИКА АДМИНА С ИНТЕРВАЛОМ 80 МИНУТ
     async function sendToTable(type) {
-        const dateVal = document.getElementById('admin-date').value;
-        if(!dateVal) return alert("Укажите дату!");
-        
+        const dateInput = document.getElementById('admin-date');
+        if(!dateInput.value) return alert("Выберите дату и время!");
+
+        let currentDT = new Date(dateInput.value);
+        const hours = currentDT.getHours();
+
+        // Проверка рабочего времени 10:00 - 21:00
+        if (hours < 10 || hours >= 21) {
+            return alert("Внимание! Рабочее время только с 10:00 до 21:00.");
+        }
+
         const data = {
             action: "addSlot",
             type: type,
             city: document.getElementById('admin-city').value || 'Онлайн',
-            date: new Date(dateVal).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'})
+            date: currentDT.toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'})
         };
 
-        await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
-        alert("Слот добавлен!");
+        try {
+            await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
+            
+            // АВТОМАТИЧЕСКИЙ ШАГ: прибавляем 80 минут для следующего раза
+            currentDT.setMinutes(currentDT.getMinutes() + 80);
+            
+            // Форматируем дату обратно для input datetime-local (YYYY-MM-DDTHH:mm)
+            const year = currentDT.getFullYear();
+            const month = String(currentDT.getMonth() + 1).padStart(2, '0');
+            const day = String(currentDT.getDate()).padStart(2, '0');
+            const hh = String(currentDT.getHours()).padStart(2, '0');
+            const mm = String(currentDT.getMinutes()).padStart(2, '0');
+            
+            dateInput.value = `${year}-${month}-${day}T${hh}:${mm}`;
+            
+            alert("Слот добавлен! Время переключено на +80 минут.");
+        } catch(e) {
+            alert("Ошибка при добавлении");
+        }
     }
 </script>
 </body>
