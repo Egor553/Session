@@ -9,19 +9,26 @@
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: var(--tg-theme-bg-color, #f5f7fa); color: var(--tg-theme-text-color, #000); margin: 0; padding: 20px; box-sizing: border-box; }
         .container { max-width: 600px; margin: 0 auto; background: var(--tg-theme-bg-color, #fff); border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         h1 { text-align: center; margin-bottom: 30px; color: var(--tg-theme-text-color, #333); }
-        input, select { width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 12px; font-size: 16px; box-sizing: border-box; }
-        button { width: 100%; padding: 16px; background-color: #3498db; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        
+        /* Элементы формы */
+        input, select { width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 12px; font-size: 16px; box-sizing: border-box; background: var(--tg-theme-secondary-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
+        button { width: 100%; padding: 16px; background-color: #3498db; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
         button:disabled { background-color: #ccc; }
         
         /* Календарь */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; margin-bottom: 20px; }
-        .day { padding: 10px; border-radius: 8px; background: #f0f0f0; cursor: pointer; }
+        .day { padding: 10px; border-radius: 8px; background: var(--tg-theme-secondary-bg-color, #f0f0f0); cursor: pointer; }
         .day.has-slots { background: #d4f0f0; color: #006666; font-weight: bold; border: 1px solid #00aaaa; }
-        .day.selected { background: #3498db; color: white; }
+        .day.selected { background: #3498db; color: white; border: none; }
         
-        /* Слоты */
+        /* Слоты времени */
         .time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
-        .time-btn { padding: 10px; border: 1px solid #3498db; background: white; color: black; border-radius: 8px; }
+        .time-btn { padding: 10px; border: 1px solid #3498db; background: transparent; color: var(--tg-theme-text-color, #000); border-radius: 8px; cursor: pointer; }
+        
+        /* Админка */
+        #admin-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; display: none; }
+        .slot-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
+        .del-btn { background: #e74c3c; width: auto; padding: 5px 12px; font-size: 12px; margin: 0; }
         
         .hidden { display: none; }
     </style>
@@ -32,12 +39,13 @@
     <div id="step-1">
         <h1>📍 Где вы находитесь?</h1>
         <input type="text" id="city" placeholder="Например: Москва">
+        <p style="font-size: 12px; color: #999; text-align: center;">(Для входа в админку введите admin123)</p>
         <button onclick="checkCity()">Продолжить</button>
     </div>
 
     <div id="step-2" class="hidden">
-        <button onclick="showStep(1)" style="background:transparent; color:#888; margin-bottom:10px; width:auto;">← Назад</button>
-        <h2 id="month-title"></h2>
+        <button onclick="showStep(1)" style="background:transparent; color:#888; margin-bottom:10px; width:auto; padding:0;">← Назад</button>
+        <h2 id="month-title" style="text-align:center;"></h2>
         <div class="calendar-grid" id="days"></div>
         <div id="times" class="time-slots"></div>
     </div>
@@ -48,6 +56,7 @@
         <input type="tel" id="phone" placeholder="Телефон">
         <input type="email" id="email" placeholder="Email (необязательно)">
         <button onclick="submitData()" id="btn-submit">Подтвердить запись</button>
+        <button onclick="showStep(2)" style="background:#95a5a6; margin-top:10px;">Назад</button>
     </div>
 
     <div id="step-4" class="hidden" style="text-align: center;">
@@ -58,33 +67,66 @@
     </div>
 </div>
 
+<div id="admin-view">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2 style="margin:0;">Админка</h2>
+        <button onclick="closeAdmin()" style="width:auto; background:#7f8c8d; padding:8px 15px;">Закрыть</button>
+    </div>
+    
+    <div style="background:#f9f9f9; padding:15px; border-radius:12px; margin-bottom:20px;">
+        <h3 style="margin-top:0;">Добавить слот</h3>
+        <label>Тип</label>
+        <select id="adm-type"><option value="offline">Оффлайн (Город)</option><option value="online">Онлайн</option></select>
+        
+        <label>Город (если оффлайн)</label>
+        <input type="text" id="adm-city" placeholder="Москва">
+        
+        <label>Дата и время</label>
+        <input type="datetime-local" id="adm-date">
+        
+        <button onclick="addSlot()">Добавить слот</button>
+    </div>
+
+    <h3>Все слоты</h3>
+    <div id="admin-slots-list"></div>
+</div>
+
 <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
 
-    // --- НАСТРОЙКИ ---
-    // 1. ВСТАВЬ ССЫЛКУ ИЗ ШАГА 2 ВНУТРЬ КАВЫЧЕК:
+    // --- НАСТРОЙКИ (ТВОИ ССЫЛКИ) ---
+    // Ссылка на таблицу ЗАПИСЕЙ (Выгрузка клиентов)
     const RECORDS_URL = 'https://script.google.com/macros/s/AKfycbw9pwZzgQzhZTOKMR6myisXpAioruZfwbf3hSf2-q_hFgXoXWbA0xqDIVD5FFbZx3j6kw/exec'; 
     
-    // Твой ключ Salebot
-    const SALEBOT_TOKEN = 'b0dc696500931edf20f8395e7986fe02';
-    
-    // Ссылка на таблицу слотов (старая)
+    // Ссылка на таблицу СЛОТОВ (База данных времени)
     const SLOTS_URL = 'https://script.google.com/macros/s/AKfycbzncapqHVS99r6sJuDFqouNErL6owLkwDKr_EYR1TqxCXI2q-26wdjbBq0SphzWC7Go9w/exec';
-    const SLOTS_ID = '1Bqq3D0D1FBksioxcNIEQZbQyBXTKfj_KGW_bjpewCFw';
-    // ----------------
+    
+    const SLOTS_SHEET_ID = '1Bqq3D0D1FBksioxcNIEQZbQyBXTKfj_KGW_bjpewCFw';
+    const SALEBOT_TOKEN = 'b0dc696500931edf20f8395e7986fe02';
+    const ADMIN_PASS = 'admin123';
+    // --------------------------------
 
     let allSlots = {};
     let currentKey = '';
     let selectedSlot = '';
 
-    // Загрузка слотов при запуске
-    fetch(`https://docs.google.com/spreadsheets/d/${SLOTS_ID}/gviz/tq?tqx=out:json&sheet=Слоты`)
-        .then(r => r.text())
-        .then(t => {
-            const json = JSON.parse(t.match(/google.visualization.Query.setResponse\(([\s\S]*)\);/)[1]);
-            if(json.table.rows.length) allSlots = JSON.parse(json.table.rows[0].c[0].v);
-        });
+    // Загрузка слотов при старте
+    function loadSlots() {
+        fetch(`https://docs.google.com/spreadsheets/d/${SLOTS_SHEET_ID}/gviz/tq?tqx=out:json&sheet=Слоты`)
+            .then(r => r.text())
+            .then(t => {
+                const json = JSON.parse(t.match(/google.visualization.Query.setResponse\(([\s\S]*)\);/)[1]);
+                if(json.table.rows.length) {
+                    allSlots = JSON.parse(json.table.rows[0].c[0].v);
+                }
+                if(document.getElementById('admin-view').style.display === 'block') {
+                    renderAdminList();
+                }
+            })
+            .catch(e => console.error("Ошибка загрузки:", e));
+    }
+    loadSlots();
 
     function showStep(n) {
         [1,2,3,4].forEach(i => document.getElementById('step-'+i).classList.add('hidden'));
@@ -93,9 +135,16 @@
 
     function checkCity() {
         const city = document.getElementById('city').value.trim();
+        
+        // ВХОД В АДМИНКУ
+        if(city === ADMIN_PASS) {
+            document.getElementById('admin-view').style.display = 'block';
+            renderAdminList();
+            return;
+        }
+
         if(!city) return alert('Введите город');
         
-        // Поиск города
         const key = Object.keys(allSlots).find(k => k.toLowerCase() === city.toLowerCase());
         
         if(key && allSlots[key].length > 0) {
@@ -117,10 +166,9 @@
         const today = new Date();
         document.getElementById('month-title').innerText = today.toLocaleString('ru', {month:'long'});
 
-        // Упрощенный календарь на 30 дней вперед
-        for(let i=0; i<30; i++) {
+        for(let i=0; i<31; i++) {
             const d = new Date(); d.setDate(today.getDate() + i);
-            const dateStr = d.toISOString().slice(0,10); // YYYY-MM-DD
+            const dateStr = d.toISOString().slice(0,10);
             
             const el = document.createElement('div');
             el.className = 'day';
@@ -133,12 +181,13 @@
             }
             grid.appendChild(el);
         }
+        document.getElementById('times').innerHTML = ''; // Очистка времени
     }
 
     function showTimes(dateStr) {
         const div = document.getElementById('times');
         div.innerHTML = '';
-        const slots = allSlots[currentKey].filter(s => s.startsWith(dateStr));
+        const slots = allSlots[currentKey].filter(s => s.startsWith(dateStr)).sort();
         
         slots.forEach(s => {
             const btn = document.createElement('button');
@@ -146,10 +195,15 @@
             btn.innerText = s.slice(11, 16);
             btn.onclick = () => {
                 selectedSlot = s;
-                document.getElementById('summary').innerText = s.replace('T', ' ');
-                // Автозаполнение
+                const dateObj = new Date(s);
+                document.getElementById('summary').innerText = dateObj.toLocaleDateString() + ' ' + s.slice(11, 16);
+                
+                // Автозаполнение имени
                 if(tg.initDataUnsafe?.user) {
-                    document.getElementById('name').value = tg.initDataUnsafe.user.first_name;
+                    document.getElementById('name').value = [
+                        tg.initDataUnsafe.user.first_name, 
+                        tg.initDataUnsafe.user.last_name
+                    ].join(' ');
                 }
                 showStep(3);
             };
@@ -157,38 +211,42 @@
         });
     }
 
+    // --- ОТПРАВКА ДАННЫХ ---
     async function submitData() {
         const name = document.getElementById('name').value;
         const phone = document.getElementById('phone').value;
         const email = document.getElementById('email').value;
 
-        if(!name || !phone) return alert('Имя и телефон обязательны');
+        if(!name || !phone) return alert('Заполните Имя и Телефон');
         
         const btn = document.getElementById('btn-submit');
         btn.disabled = true;
-        btn.innerText = 'Отправка...';
+        btn.innerText = 'Записываю...';
 
-        // 1. ОТПРАВКА В SALEBOT
+        // 1. Отправка в Salebot
         const sbData = {
             client_id: tg.initDataUnsafe?.user?.id || phone,
             message: "ЗАЯВКА_С_САЙТА",
             variables: { name, phone, slot: selectedSlot, city: currentKey }
         };
-        
         fetch(`https://chatter.salebot.pro/api/${SALEBOT_TOKEN}/callback`, {
-            method: 'POST',
-            body: JSON.stringify(sbData)
-        }).catch(e => console.error(e));
+            method: 'POST', body: JSON.stringify(sbData)
+        }).catch(e => console.error("Salebot Error:", e));
 
-        // 2. УДАЛЕНИЕ СЛОТА (Обновление БД слотов)
-        allSlots[currentKey] = allSlots[currentKey].filter(s => s !== selectedSlot);
-        const fd = new FormData();
-        fd.append('action', 'saveSlots');
-        fd.append('data', JSON.stringify(allSlots));
-        fetch(SLOTS_URL, {method:'POST', body:fd}).catch(console.error);
+        // 2. Обновление таблицы слотов (удаление занятого)
+        if(allSlots[currentKey]) {
+            allSlots[currentKey] = allSlots[currentKey].filter(s => s !== selectedSlot);
+            if(allSlots[currentKey].length === 0) delete allSlots[currentKey];
+            
+            const fd = new FormData();
+            fd.append('action', 'saveSlots');
+            fd.append('data', JSON.stringify(allSlots));
+            fetch(SLOTS_URL, {method:'POST', body:fd}).catch(e => console.error("Slots Error:", e));
+        }
 
-        // 3. ЗАПИСЬ В ТАБЛИЦУ (Выгрузка)
+        // 3. Выгрузка в таблицу записей (БД клиентов)
         const params = new URLSearchParams();
+        params.append('type', currentKey === 'online' ? 'online' : 'offline');
         params.append('city', currentKey);
         params.append('slot', selectedSlot);
         params.append('full_name', name);
@@ -198,15 +256,79 @@
         fetch(RECORDS_URL, {
             method: 'POST',
             body: params,
-            mode: 'no-cors' // <-- ВАЖНО ДЛЯ РАБОТЫ
+            mode: 'no-cors' // <-- ВАЖНО для работы без ошибок в браузере
         }).then(() => {
             showStep(4);
         }).catch(() => {
-            // Если ошибка сети, все равно показываем успех, т.к. бот скорее всего сработал
-            showStep(4);
+            showStep(4); // Показываем успех даже при ошибке сети (так как Salebot уже сработал)
         });
     }
-</script>
 
+    // --- ФУНКЦИИ АДМИНКИ ---
+    function closeAdmin() {
+        document.getElementById('admin-view').style.display = 'none';
+        document.getElementById('city').value = ''; // Очистка пароля
+    }
+
+    async function addSlot() {
+        const type = document.getElementById('adm-type').value;
+        const city = document.getElementById('adm-city').value.trim();
+        const dateVal = document.getElementById('adm-date').value;
+
+        if(!dateVal) return alert('Выберите дату');
+        if(type === 'offline' && !city) return alert('Введите город');
+
+        const key = (type === 'online') ? 'online' : city;
+        
+        // Формируем слот
+        if(!allSlots[key]) allSlots[key] = [];
+        allSlots[key].push(dateVal);
+        allSlots[key].sort();
+
+        // Сохраняем
+        const fd = new FormData();
+        fd.append('action', 'saveSlots');
+        fd.append('data', JSON.stringify(allSlots));
+        
+        await fetch(SLOTS_URL, {method:'POST', body:fd});
+        alert('Слот добавлен!');
+        renderAdminList();
+    }
+
+    function renderAdminList() {
+        const div = document.getElementById('admin-slots-list');
+        div.innerHTML = '';
+        
+        if(Object.keys(allSlots).length === 0) {
+            div.innerHTML = '<p>Слотов пока нет</p>';
+            return;
+        }
+
+        for(let key in allSlots) {
+            allSlots[key].forEach(slot => {
+                const datePretty = slot.replace('T', ' ');
+                div.innerHTML += `
+                    <div class="slot-item">
+                        <div><b>${key}</b><br>${datePretty}</div>
+                        <button class="del-btn" onclick="deleteSlot('${key}', '${slot}')">Удалить</button>
+                    </div>`;
+            });
+        }
+    }
+
+    async function deleteSlot(key, slot) {
+        if(!confirm('Удалить этот слот?')) return;
+        
+        allSlots[key] = allSlots[key].filter(s => s !== slot);
+        if(allSlots[key].length === 0) delete allSlots[key];
+
+        const fd = new FormData();
+        fd.append('action', 'saveSlots');
+        fd.append('data', JSON.stringify(allSlots));
+        
+        await fetch(SLOTS_URL, {method:'POST', body:fd});
+        renderAdminList();
+    }
+</script>
 </body>
 </html>
