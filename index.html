@@ -6,36 +6,17 @@
     <title>Запись на сессию</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 900px;
-            margin: 40px auto;
-            background: white;
-            border-radius: 24px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            padding: 50px 40px;
-            text-align: center;
-        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); margin: 0; padding: 20px; min-height: 100vh; }
+        .container { max-width: 900px; margin: 40px auto; background: white; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); padding: 50px 40px; text-align: center; }
         h1 { font-size: 36px; color: #2c3e50; margin-bottom: 40px; font-weight: 700; }
         label { display: block; margin: 25px 0 10px; font-weight: 600; color: #34495e; font-size: 18px; text-align: left; }
-        input[type="text"], input[type="tel"], input[type="email"] {
-            width: 100%; padding: 18px; border: 2px solid #e0e0e0; border-radius: 16px; font-size: 18px; box-sizing: border-box; transition: all 0.3s;
-        }
+        input[type="text"], input[type="tel"], input[type="email"] { width: 100%; padding: 18px; border: 2px solid #e0e0e0; border-radius: 16px; font-size: 18px; box-sizing: border-box; transition: all 0.3s; }
         input:focus { outline: none; border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); }
-        button {
-            padding: 18px 32px; background: #3498db; color: white; border: none; border-radius: 16px; font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.3s; margin: 10px 5px; box-shadow: 0 8px 20px rgba(52,152,219,0.2);
-        }
+        button { padding: 18px 32px; background: #3498db; color: white; border: none; border-radius: 16px; font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.3s; margin: 10px 5px; box-shadow: 0 8px 20px rgba(52,152,219,0.2); }
         button:hover { background: #2980b9; transform: translateY(-3px); }
         .message { padding: 30px; border-radius: 20px; margin: 40px 0; font-size: 22px; font-weight: 600; line-height: 1.6; }
         .congrats { background: linear-gradient(135deg, #d5f5e3, #a8e6cf); color: #27ae60; }
         .no-offline { background: linear-gradient(135deg, #fffacd, #ffeb99); color: #f39c12; }
-        /* Календарь */
         #calendar-container { display: none; margin-top: 50px; }
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 24px; font-weight: 700; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; text-align: center; }
@@ -55,7 +36,6 @@
         #confirmation-content p { font-size: 20px; line-height: 1.6; margin: 15px 0; }
         #confirmation-close { background: #3498db; margin-top: 30px; padding: 15px 40px; }
         #to-bot-btn { background: linear-gradient(135deg, #27ae60, #2ecc71); margin-top: 20px; padding: 15px 40px; }
-        /* Админ-панель */
         #admin-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 20px; box-sizing: border-box; }
         #admin-content { background: white; border-radius: 24px; padding: 50px; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 60px rgba(0,0,0,0.3); }
         #admin-back { position: absolute; top: 30px; left: 30px; background: #e74c3c; padding: 15px 30px; font-size: 18px; }
@@ -124,7 +104,6 @@
         </div>
     </div>
 
-    <!-- Админ-панель -->
     <div id="admin-fullscreen">
         <div id="admin-content">
             <button id="admin-back" onclick="closeAdminFullscreen()">← Назад</button>
@@ -183,10 +162,8 @@
 
         const ADMIN_PASSWORD = 'admin123';
         const SLOTS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzncapqHVS99r6sJuDFqouNErL6owLkwDKr_EYR1TqxCXI2q-26wdjbBq0SphzWC7Go9w/exec';
-        const RECORDS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbykW95ePGpIZ3Nary4TcKffbZht_8Ty-jm9snVLFKZYCPsklpcKJGu8ni8CluuaxFmqXg/exec';
+        const RECORDS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw9pwZzgQzhZTOKMR6myisXpAioruZfwbf3hSf2-q_hFgXoXWbA0xqDIVD5FFbZx3j6kw/exec';
         const SALEBOT_API_KEY = 'b0dc696500931edf20f8395e7986fe02';
-
-        const SLOTS_SHEET_ID = '1Bqq3D0D1FBksioxcNIEQZbQyBXTKfj_KGW_bjpewCFw';
 
         let config = { slots: { online: [] } };
         let currentMonth = new Date();
@@ -198,16 +175,10 @@
 
         async function loadConfig() {
             try {
-                const url = `https://docs.google.com/spreadsheets/d/${SLOTS_SHEET_ID}/gviz/tq?tqx=out:json&sheet=Слоты`;
-                const response = await fetch(url);
+                const response = await fetch(SLOTS_SCRIPT_URL + '?action=getSlots');
                 const text = await response.text();
-                const jsonMatch = text.match(/google.visualization.Query.setResponse\(([\s\S]*)\);/);
-                if (jsonMatch && jsonMatch[1]) {
-                    const data = JSON.parse(jsonMatch[1]);
-                    const rows = data.table.rows;
-                    if (rows.length > 0 && rows[0].c && rows[0].c[0] && rows[0].c[0].v) {
-                        config = JSON.parse(rows[0].c[0].v);
-                    }
+                if (text) {
+                    config = JSON.parse(text);
                 }
             } catch (e) {
                 console.log('Ошибка загрузки слотов');
@@ -378,7 +349,6 @@
                 return;
             }
 
-            // Удаляем слот из расписания
             config.slots[currentKey] = config.slots[currentKey].filter(s => s !== selectedSlot);
             if (config.slots[currentKey].length === 0) delete config.slots[currentKey];
             await saveConfig();
@@ -396,7 +366,7 @@
             params.append('email', email || '-');
             fetch(RECORDS_SCRIPT_URL, { method: 'POST', body: params, mode: 'no-cors' });
 
-            // ПРОСТОЙ СИГНАЛ В SALE BOT
+            // Сигнал в Salebot
             const clientId = tg.initDataUnsafe?.user?.id?.toString() || phone.replace(/[^0-9]/g, '');
 
             const payload = {
@@ -410,7 +380,6 @@
                 body: JSON.stringify(payload)
             });
 
-            // Подтверждение на сайте
             document.getElementById('confirm-slot').textContent = formattedSlot;
             document.getElementById('confirm-name').textContent = full_name;
             document.getElementById('confirmation-modal').style.display = 'flex';
@@ -444,7 +413,6 @@
             document.getElementById('time-slots').style.display = 'none';
         }
 
-        // Админ-панель (оставляем как есть)
         function closeAdminFullscreen() {
             document.getElementById('admin-fullscreen').style.display = 'none';
             resetAll();
