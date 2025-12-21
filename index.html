@@ -4,134 +4,123 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <title>Запись на сессию</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #f4f7f9; padding: 15px; margin: 0; color: #333; }
-        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
+        .card { background: #fff; padding: 25px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
         .hidden { display: none; }
-        h2 { text-align: center; margin-top: 0; font-size: 1.2rem; }
         input, button { width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
-        button { background: #2563eb; color: white; border: none; font-weight: 600; cursor: pointer; }
-        .slot-btn { background: #f1f5f9; color: #1a1a1a; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; text-align: left; }
-        #debug-id { font-size: 10px; color: #ccc; text-align: center; margin-top: 10px; }
+        button { background: #2563eb; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+        .slot-btn { background: #f1f5f9; color: #1a1a1a; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        #debug { font-size: 10px; text-align: center; color: #aaa; margin-top: 10px; }
+        .success-box { text-align: center; }
+        .success-icon { font-size: 50px; display: block; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-<div id="screen-city" class="card">
-    <h2>Ваш город</h2>
+<div id="screen-1" class="card">
+    <h2 style="text-align:center">Ваш город</h2>
     <input type="text" id="city-input" placeholder="Например: Астана">
-    <button onclick="searchSlots()">Найти время</button>
-    <div id="debug-id">Ожидание Telegram ID...</div>
+    <button onclick="search()">Найти время</button>
+    <div id="debug">Загрузка данных...</div>
 </div>
 
-<div id="screen-slots" class="card hidden">
-    <h2 id="city-name"></h2>
+<div id="screen-2" class="card hidden">
+    <h2 id="city-name" style="text-align:center"></h2>
     <div id="slots-list"></div>
     <button onclick="location.reload()" style="background:#64748b">← Назад</button>
 </div>
 
-<div id="screen-form" class="card hidden">
-    <h2>Ваши данные</h2>
+<div id="screen-3" class="card hidden">
+    <h2 style="text-align:center">Данные для записи</h2>
     <input type="text" id="u-name" placeholder="Имя">
     <input type="tel" id="u-phone" placeholder="Телефон">
-    <button onclick="book()">Подтвердить запись</button>
+    <button onclick="sendBooking()">Записаться</button>
 </div>
 
-<div id="screen-admin" class="card hidden">
-    <h2>Админ-панель</h2>
-    <input type="text" id="a-city" placeholder="Город">
-    <input type="datetime-local" id="a-date">
-    <button onclick="addSlot()">Добавить слот</button>
-    <button onclick="location.reload()" style="background:#64748b">Выход</button>
+<div id="screen-finish" class="card hidden">
+    <div class="success-box">
+        <span class="success-icon">✅</span>
+        <h2>Данные сохранены!</h2>
+        <p>Нажмите кнопку ниже, чтобы вернуться в бот и получить анкету.</p>
+        <button onclick="finishProcess()" style="background: #10b981;">ЗАВЕРШИТЬ ЗАПИСЬ</button>
+    </div>
 </div>
 
 <script>
-    // ВСТАВЬТЕ ВАШУ ССЫЛКУ /EXEC НИЖЕ
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwzexgn1XRNwzOzB8fvakRtDwlWxgxjbThuZUvNe3cA41Ljx57lBwKaonOu-F30P9rh6Q/exec';
+    // ВСТАВЬ СВОЮ ССЫЛКУ /EXEC НИЖЕ
+    const API = 'https://script.google.com/macros/s/AKfycbxM4d396RuDFmsO9CzjdCdmfeUm0o4kW7tiJM9a1256kGL8vFEl1W074_XkzVSG1pQ0aQ/exec';
     
     const tg = window.Telegram.WebApp;
     tg.expand();
 
-    let database = [];
-    let selected = null;
+    let db = [];
+    let selectedSlot = null;
+    // Получаем реальный ID пользователя
+    const realId = (tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : 0;
+    document.getElementById('debug').innerText = "Ваш ID: " + realId;
 
-    // Выводим ID для проверки (если 0 - открыто не через бота)
-    const currentUserId = tg.initDataUnsafe?.user?.id || 0;
-    document.getElementById('debug-id').innerText = "Ваш Telegram ID: " + currentUserId;
-
-    async function loadData() {
-        const res = await fetch(API_URL + "?t=" + Date.now());
-        database = await res.json();
-    }
-    loadData();
-
-    function searchSlots() {
-        const city = document.getElementById('city-input').value.trim();
-        if (city.toLowerCase() === 'admin123') {
-            document.getElementById('screen-city').classList.add('hidden');
-            document.getElementById('screen-admin').classList.remove('hidden');
-            return;
+    async function load() {
+        try {
+            const res = await fetch(API + "?nocache=" + Date.now());
+            db = await res.json();
+            document.getElementById('debug').innerText = "ID: " + realId + " | База подключена";
+        } catch (e) {
+            document.getElementById('debug').innerText = "Ошибка загрузки данных";
         }
+    }
+    load();
 
-        document.getElementById('screen-city').classList.add('hidden');
-        document.getElementById('screen-slots').classList.remove('hidden');
-        document.getElementById('city-name').innerText = city;
+    function search() {
+        const city = document.getElementById('city-input').value.trim().toLowerCase();
+        const found = db.filter(x => x.city && x.city.toLowerCase() === city);
+        
+        document.getElementById('screen-1').classList.add('hidden');
+        document.getElementById('screen-2').classList.remove('hidden');
+        document.getElementById('city-name').innerText = city.charAt(0).toUpperCase() + city.slice(1);
 
         const list = document.getElementById('slots-list');
-        const found = database.filter(x => x.city.toLowerCase() === city.toLowerCase());
+        list.innerHTML = found.length ? "" : "<p style='text-align:center'>Свободных мест нет</p>";
         
-        list.innerHTML = found.length ? "" : "<p style='text-align:center'>Мест нет</p>";
         found.forEach(item => {
             const btn = document.createElement('button');
             btn.className = 'slot-btn';
-            btn.innerHTML = `<span>${item.date}</span> <b>→</b>`;
+            btn.innerHTML = `<span>📅 ${item.date}</span> <b>→</b>`;
             btn.onclick = () => {
-                selected = item;
-                document.getElementById('screen-slots').classList.add('hidden');
-                document.getElementById('screen-form').classList.remove('hidden');
+                selectedSlot = item;
+                document.getElementById('screen-2').classList.add('hidden');
+                document.getElementById('screen-3').classList.remove('hidden');
             };
             list.appendChild(btn);
         });
     }
 
-    async function book() {
+    async function sendBooking() {
         const name = document.getElementById('u-name').value;
         const phone = document.getElementById('u-phone').value;
-        if (!name || !phone) return alert("Заполните данные");
+        if(!name || !phone) return alert("Заполните поля");
 
-        // Отправка данных в таблицу 
-        await fetch(API_URL, {
+        // Отправка данных в Google Таблицу 
+        fetch(API, {
             method: 'POST',
             body: JSON.stringify({
                 action: 'book',
-                slot: selected.date,
-                city: selected.city,
-                type: selected.type,
+                slot: selectedSlot.date,
+                city: selectedSlot.city,
                 name: name,
                 phone: phone,
-                tg_id: currentUserId // Отправляем реальный ID
+                tg_id: realId
             })
         });
 
-        alert("Заявка принята!");
-        // Сигнал боту Salebot 
-        tg.sendData("ЗаявкаОформлена");
-        tg.close();
+        document.getElementById('screen-3').classList.add('hidden');
+        document.getElementById('screen-finish').classList.remove('hidden');
     }
 
-    async function addSlot() {
-        const city = document.getElementById('a-city').value || "Офлайн";
-        const dateRaw = document.getElementById('a-date').value;
-        if (!dateRaw) return alert("Выбери дату");
-
-        const dateStr = new Date(dateRaw).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
-
-        await fetch(API_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'addSlot', city: city, date: dateStr, type: 'offline' })
-        });
-        alert("Добавлено: " + dateStr);
+    function finishProcess() {
+        // Отправка сигнала в Salebot
+        tg.sendData("ЗаявкаОформлена"); 
+        tg.close();
     }
 </script>
 </body>
