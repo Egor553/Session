@@ -2,196 +2,135 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <title>Запись на сессию</title>
+    <title>Запись</title>
     <style>
-        :root { --blue: #2563eb; --bg: #f8fafc; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        body { font-family: sans-serif; background: #f4f7f9; color: #333; padding: 20px; margin: 0; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+        input, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
+        button { background: #2563eb; color: white; border: none; font-weight: bold; cursor: pointer; }
+        .slot { background: #eef2ff; padding: 12px; border-radius: 8px; margin-bottom: 10px; cursor: pointer; border-left: 4px solid #2563eb; display: flex; justify-content: space-between; }
         .hidden { display: none; }
-        h2 { text-align: center; margin-top: 0; font-size: 1.2rem; }
-        input, button { width: 100%; padding: 14px; margin: 8px 0; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
-        button { background: var(--blue); color: white; border: none; font-weight: 600; cursor: pointer; }
-        button:active { opacity: 0.8; }
-        .slot-btn { background: #f1f5f9; color: #333; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; text-align: left; }
-        .admin-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 1000; padding: 20px; overflow-y: auto; }
-        #status { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-<div id="app-ui">
-    <div id="view-city" class="card">
-        <h2>Ваш город</h2>
-        <input type="text" id="in-city" placeholder="Например: Москва">
-        <button onclick="findSlots()">Найти время</button>
-        <div id="status">Загрузка календаря...</div>
-    </div>
-
-    <div id="view-slots" class="card hidden">
-        <h2 id="city-title"></h2>
-        <div id="list-container"></div>
-        <button onclick="showOnline()" style="background:#0ea5e9; margin-top:10px">Записаться Онлайн</button>
-        <button onclick="location.reload()" style="background:transparent; color:gray">← Назад</button>
-    </div>
-
-    <div id="view-form" class="card hidden">
-        <h2>Запись</h2>
-        <input type="text" id="in-name" placeholder="Ваше Имя">
-        <input type="tel" id="in-phone" placeholder="Телефон">
-        <label style="font-size:12px; margin-left:5px; color:gray">Дата рождения:</label>
-        <input type="date" id="in-birth">
-        <button onclick="sendBooking()">Подтвердить</button>
-        <button onclick="document.getElementById('view-form').classList.add('hidden'); document.getElementById('view-slots').classList.remove('hidden');" style="background:transparent; color:gray">← Назад</button>
-    </div>
+<div id="step1" class="card">
+    <h2 style="text-align:center">Введите город</h2>
+    <input type="text" id="cityInput" placeholder="Например: Астана">
+    <button onclick="showSlots()">Найти время</button>
+    <p id="status" style="text-align:center; font-size:12px; color:gray">Синхронизация с Google...</p>
 </div>
 
-<div id="admin-ui" class="admin-screen hidden">
-    <h2>⚙️ Админ-панель</h2>
-    <p style="font-size:12px; color:gray">Каждое нажатие добавляет слот и сдвигает время на +80 мин.</p>
-    
-    <input type="text" id="a-city" placeholder="Город (для офлайн)">
-    <label>Время начала:</label>
-    <input type="datetime-local" id="a-date">
-    
-    <button onclick="addSlot('offline')">Добавить Офлайн (+80 мин)</button>
-    <button onclick="addSlot('online')" style="background:#0ea5e9">Добавить Онлайн (+80 мин)</button>
-    
-    <button onclick="location.reload()" style="background:gray; margin-top:20px">Выйти</button>
+<div id="step2" class="card hidden">
+    <h2 id="cityName" style="text-align:center"></h2>
+    <div id="slotsList"></div>
+    <button onclick="location.reload()" style="background:#64748b">Назад</button>
+</div>
+
+<div id="step3" class="card hidden">
+    <h2 style="text-align:center">Запись</h2>
+    <input type="text" id="userName" placeholder="Ваше имя">
+    <input type="tel" id="userPhone" placeholder="Телефон">
+    <button onclick="finalBook()">Записаться</button>
+</div>
+
+<div id="adminArea" class="card hidden" style="margin-top:20px; border: 2px dashed #2563eb;">
+    <h3>Админку открыли ✅</h3>
+    <input type="text" id="aCity" placeholder="Город">
+    <input type="datetime-local" id="aDate">
+    <button onclick="addSlot()">Добавить слот (+80 мин)</button>
 </div>
 
 <script>
-    // ВАША ПРОВЕРЕННАЯ ССЫЛКА
-    const APP_URL = 'https://script.google.com/macros/s/AKfycbzuyk5EiWFa3DS7UEVcAYPcdhPHeUr7G5WZBHUaQxLgfmzhn3I09gkURykTyUQEhGdrTQ/exec';
-    
+    const URL = 'https://script.google.com/macros/s/AKfycbyNSfuS8GETFTsNdEeYHHEwU3MlReT2MFGuCYJAUu2ICQpwJRtjBtUkZlLdvbR0QKq8rw/exec';
     const tg = window.Telegram.WebApp;
-    tg.expand(); 
+    let allData = [];
+    let selected = null;
 
-    let db = [];
-    let selectedSlot = null;
+    // Загрузка данных сразу
+    fetch(URL).then(r => r.json()).then(data => {
+        allData = data;
+        document.getElementById('status').innerText = "✅ База готова";
+    }).catch(() => {
+        document.getElementById('status').innerText = "❌ Ошибка загрузки";
+    });
 
-    // 1. ЗАГРУЗКА ПРИ СТАРТЕ
-    fetch(APP_URL)
-        .then(res => res.json())
-        .then(data => {
-            db = data;
-            // Если массив пустой [], значит база пустая, но работает
-            if (db.length === 0) {
-                document.getElementById('status').innerText = "✅ База подключена (пока пустая)";
-            } else {
-                document.getElementById('status').innerText = "✅ Расписание загружено";
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            document.getElementById('status').innerText = "✅ Готово (ожидание ввода)";
-        });
-
-    // 2. ПОИСК СЛОТОВ
-    function findSlots() {
-        const city = document.getElementById('in-city').value.trim();
+    function showSlots() {
+        const city = document.getElementById('cityInput').value.trim();
         
-        // ВХОД В АДМИНКУ
         if (city.toLowerCase() === 'admin123') {
-            return document.getElementById('admin-ui').classList.remove('hidden');
+            document.getElementById('adminArea').classList.remove('hidden');
+            return;
         }
-        
-        if (!city) return alert("Введите город");
 
-        document.getElementById('view-city').classList.add('hidden');
-        document.getElementById('view-slots').classList.remove('hidden');
-        document.getElementById('city-title').innerText = city;
-        
-        renderList(db.filter(s => s.type === 'offline' && s.city.toLowerCase() === city.toLowerCase()));
-    }
+        document.getElementById('step1').classList.add('hidden');
+        document.getElementById('step2').classList.remove('hidden');
+        document.getElementById('cityName').innerText = city;
 
-    function renderList(list) {
-        const div = document.getElementById('list-container');
-        if (list.length === 0) {
-            div.innerHTML = '<p style="text-align:center;color:gray;margin-top:20px">На данный момент свободных окон нет.</p>';
+        const list = document.getElementById('slotsList');
+        const filtered = allData.filter(s => s.city.toLowerCase() === city.toLowerCase());
+
+        if (filtered.length === 0) {
+            list.innerHTML = "<p style='text-align:center'>Свободных мест нет</p>";
         } else {
-            div.innerHTML = '';
-            list.forEach(item => {
-                const btn = document.createElement('button');
-                btn.className = 'slot-btn';
-                btn.innerHTML = `<span>📅 ${item.date}</span> <span>➜</span>`;
-                btn.onclick = () => {
-                    selectedSlot = item;
-                    document.getElementById('view-slots').classList.add('hidden');
-                    document.getElementById('view-form').classList.remove('hidden');
+            filtered.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'slot';
+                div.innerHTML = `<span>${s.date}</span> <span>→</span>`;
+                div.onclick = () => {
+                    selected = s;
+                    document.getElementById('step2').classList.add('hidden');
+                    document.getElementById('step3').classList.remove('hidden');
                 };
-                div.appendChild(btn);
+                list.appendChild(div);
             });
         }
     }
 
-    function showOnline() {
-        renderList(db.filter(s => s.type === 'online'));
-        document.getElementById('city-title').innerText = "Онлайн сессии";
-    }
+    function finalBook() {
+        const name = document.getElementById('userName').value;
+        const phone = document.getElementById('userPhone').value;
+        if (!name || !phone) return alert("Заполните поля!");
 
-    // 3. ОТПРАВКА ЗАЯВКИ
-    function sendBooking() {
-        const name = document.getElementById('in-name').value;
-        const phone = document.getElementById('in-phone').value;
-        if (!name || !phone) return alert("Заполните Имя и Телефон");
+        alert("Заявка отправлена!");
 
-        // Мгновенная реакция интерфейса
-        alert("Заявка принята! Сейчас бот пришлет анкету.");
-        tg.sendData("ЗаявкаОформлена"); // Сигнал для Salebot
-        tg.close(); // Закрываем окно
-
-        // Отправка данных на сервер (в фоне)
-        fetch(APP_URL, {
+        fetch(URL, {
             method: 'POST',
             body: JSON.stringify({
                 action: 'book',
-                type: selectedSlot.type,
-                city: selectedSlot.city,
-                slot: selectedSlot.date,
+                slot: selected.date,
+                city: selected.city,
+                type: selected.type,
                 name: name,
                 phone: phone,
-                birthDate: document.getElementById('in-birth').value,
-                tg_id: tg.initDataUnsafe?.user?.id || 'unknown'
+                tg_id: tg.initDataUnsafe?.user?.id || 'web'
             })
         });
+
+        tg.sendData("ЗаявкаОформлена");
+        tg.close();
     }
 
-    // 4. ДОБАВЛЕНИЕ СЛОТОВ (АДМИН)
-    function addSlot(type) {
-        const dateInput = document.getElementById('a-date');
-        const cityInput = document.getElementById('a-city');
-        if (!dateInput.value) return alert("Выберите дату!");
+    function addSlot() {
+        const city = document.getElementById('aCity').value || 'Офлайн';
+        const dateRaw = document.getElementById('aDate').value;
+        if (!dateRaw) return alert("Выберите дату");
 
-        let dt = new Date(dateInput.value);
-        let dateStr = dt.toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
+        const dt = new Date(dateRaw);
+        const dateStr = dt.toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
 
-        // Отправка на сервер
-        fetch(APP_URL, {
+        fetch(URL, {
             method: 'POST',
-            body: JSON.stringify({
-                action: 'addSlot',
-                type: type,
-                city: cityInput.value || 'Онлайн',
-                date: dateStr
-            })
+            body: JSON.stringify({ action: 'addSlot', city: city, date: dateStr, type: 'offline' })
         });
 
-        // Визуальное обновление интерфейса (+80 минут)
-        const btn = event.target;
-        const originalText = btn.innerText;
-        btn.innerText = "✅ Добавлено!";
-        btn.style.background = "#10b981"; // Зеленый цвет
-
+        // Сдвиг времени
         dt.setMinutes(dt.getMinutes() + 80);
-        dateInput.value = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0,16);
-        
-        setTimeout(() => {
-            btn.innerText = originalText;
-            btn.style.background = (type==='online' ? "#0ea5e9" : "#2563eb");
-        }, 800);
+        document.getElementById('aDate').value = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+        alert("Добавлено: " + dateStr);
     }
 </script>
 </body>
-        </html>
+</html>
