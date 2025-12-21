@@ -2,134 +2,145 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <title>Запись</title>
     <style>
-        body { font-family: sans-serif; background: #f4f7f9; color: #333; padding: 20px; margin: 0; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
-        input, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
-        button { background: #2563eb; color: white; border: none; font-weight: bold; cursor: pointer; }
-        .slot { background: #eef2ff; padding: 12px; border-radius: 8px; margin-bottom: 10px; cursor: pointer; border-left: 4px solid #2563eb; display: flex; justify-content: space-between; }
+        body { font-family: -apple-system, sans-serif; background: #f4f7f9; padding: 15px; margin: 0; color: #333; }
+        .card { background: #fff; padding: 25px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
         .hidden { display: none; }
+        h2 { text-align: center; margin-top: 0; font-size: 1.3rem; color: #1a1a1a; }
+        input, button { width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; outline: none; }
+        button { background: #2563eb; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+        button:active { opacity: 0.8; }
+        .slot-btn { background: #f1f5f9; color: #1a1a1a; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; text-align: left; }
+        .slot-btn b { color: #2563eb; }
+        #status-dot { font-size: 10px; text-align: center; color: #ccc; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-<div id="step1" class="card">
-    <h2 style="text-align:center">Введите город</h2>
-    <input type="text" id="cityInput" placeholder="Например: Астана">
-    <button onclick="showSlots()">Найти время</button>
-    <p id="status" style="text-align:center; font-size:12px; color:gray">Синхронизация с Google...</p>
+<div id="screen-start" class="card">
+    <h2>Ваш город</h2>
+    <input type="text" id="city-search" placeholder="Например: Астана">
+    <button onclick="goSearch()">Показать время</button>
+    <div id="status-dot">Загрузка данных...</div>
 </div>
 
-<div id="step2" class="card hidden">
-    <h2 id="cityName" style="text-align:center"></h2>
-    <div id="slotsList"></div>
-    <button onclick="location.reload()" style="background:#64748b">Назад</button>
+<div id="screen-slots" class="card hidden">
+    <h2 id="display-city"></h2>
+    <div id="slots-container"></div>
+    <button onclick="location.reload()" style="background:#64748b; margin-top:10px">← Назад</button>
 </div>
 
-<div id="step3" class="card hidden">
-    <h2 style="text-align:center">Запись</h2>
-    <input type="text" id="userName" placeholder="Ваше имя">
-    <input type="tel" id="userPhone" placeholder="Телефон">
-    <button onclick="finalBook()">Записаться</button>
+<div id="screen-form" class="card hidden">
+    <h2>Ваши контакты</h2>
+    <input type="text" id="u-name" placeholder="Имя">
+    <input type="tel" id="u-phone" placeholder="Телефон">
+    <button onclick="confirmBooking()">Записаться</button>
+    <button onclick="location.reload()" style="background:#64748b">Отмена</button>
 </div>
 
-<div id="adminArea" class="card hidden" style="margin-top:20px; border: 2px dashed #2563eb;">
-    <h3>Админку открыли ✅</h3>
-    <input type="text" id="aCity" placeholder="Город">
-    <input type="datetime-local" id="aDate">
+<div id="screen-admin" class="card hidden">
+    <h2>Админ-панель</h2>
+    <input type="text" id="a-city" placeholder="Город">
+    <input type="datetime-local" id="a-date">
     <button onclick="addSlot()">Добавить слот (+80 мин)</button>
+    <button onclick="location.reload()" style="background:#64748b">Выход</button>
 </div>
 
 <script>
-    const URL = 'https://script.google.com/macros/s/AKfycbyNSfuS8GETFTsNdEeYHHEwU3MlReT2MFGuCYJAUu2ICQpwJRtjBtUkZlLdvbR0QKq8rw/exec';
+    // ТВОЙ НОВЫЙ URL
+    const API = 'https://script.google.com/macros/s/AKfycbjzUvF-qiV-Zhnn-7z7L9q62Pw5o6EiXchfkSCEFB_UxdUmapBTcLi_ewzoekS0-PECg/exec';
     const tg = window.Telegram.WebApp;
-    let allData = [];
+    tg.expand();
+
+    let database = [];
     let selected = null;
 
-    // Загрузка данных сразу
-    fetch(URL).then(r => r.json()).then(data => {
-        allData = data;
-        document.getElementById('status').innerText = "✅ База готова";
-    }).catch(() => {
-        document.getElementById('status').innerText = "❌ Ошибка загрузки";
-    });
+    // Загрузка данных с защитой от кэша
+    async function loadData() {
+        try {
+            const res = await fetch(`${API}?nocache=${Date.now()}`);
+            database = await res.json();
+            document.getElementById('status-dot').innerText = "● Данные обновлены";
+        } catch (e) {
+            document.getElementById('status-dot').innerText = "○ Ошибка связи";
+        }
+    }
 
-    function showSlots() {
-        const city = document.getElementById('cityInput').value.trim();
-        
+    loadData();
+
+    function goSearch() {
+        const city = document.getElementById('city-search').value.trim();
         if (city.toLowerCase() === 'admin123') {
-            document.getElementById('adminArea').classList.remove('hidden');
+            document.getElementById('screen-start').classList.add('hidden');
+            document.getElementById('screen-admin').classList.remove('hidden');
             return;
         }
+        
+        if (!city) return;
 
-        document.getElementById('step1').classList.add('hidden');
-        document.getElementById('step2').classList.remove('hidden');
-        document.getElementById('cityName').innerText = city;
+        document.getElementById('screen-start').classList.add('hidden');
+        document.getElementById('screen-slots').classList.remove('hidden');
+        document.getElementById('display-city').innerText = city;
 
-        const list = document.getElementById('slotsList');
-        const filtered = allData.filter(s => s.city.toLowerCase() === city.toLowerCase());
-
-        if (filtered.length === 0) {
-            list.innerHTML = "<p style='text-align:center'>Свободных мест нет</p>";
+        const container = document.getElementById('slots-container');
+        // Фильтр без учета регистра и пробелов
+        const found = database.filter(x => x.city && x.city.toLowerCase().trim() === city.toLowerCase().trim());
+        
+        if (found.length === 0) {
+            container.innerHTML = "<p style='text-align:center; color:gray; padding: 20px 0;'>Свободных мест в этом городе пока нет.</p>";
         } else {
-            filtered.forEach(s => {
-                const div = document.createElement('div');
-                div.className = 'slot';
-                div.innerHTML = `<span>${s.date}</span> <span>→</span>`;
-                div.onclick = () => {
-                    selected = s;
-                    document.getElementById('step2').classList.add('hidden');
-                    document.getElementById('step3').classList.remove('hidden');
+            container.innerHTML = "";
+            found.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'slot-btn';
+                btn.innerHTML = `<span>📅 ${item.date}</span> <b>→</b>`;
+                btn.onclick = () => {
+                    selected = item;
+                    document.getElementById('screen-slots').classList.add('hidden');
+                    document.getElementById('screen-form').classList.remove('hidden');
                 };
-                list.appendChild(div);
+                container.appendChild(btn);
             });
         }
     }
 
-    function finalBook() {
-        const name = document.getElementById('userName').value;
-        const phone = document.getElementById('userPhone').value;
-        if (!name || !phone) return alert("Заполните поля!");
+    function confirmBooking() {
+        const name = document.getElementById('u-name').value;
+        const phone = document.getElementById('u-phone').value;
+        if (!name || !phone) return alert("Заполните данные");
 
-        alert("Заявка отправлена!");
-
-        fetch(URL, {
+        fetch(API, {
             method: 'POST',
             body: JSON.stringify({
                 action: 'book',
                 slot: selected.date,
                 city: selected.city,
-                type: selected.type,
                 name: name,
                 phone: phone,
-                tg_id: tg.initDataUnsafe?.user?.id || 'web'
+                tg_id: tg.initDataUnsafe?.user?.id || 'id_web'
             })
         });
 
+        alert("Вы успешно записаны! Бот пришлет дальнейшие инструкции.");
         tg.sendData("ЗаявкаОформлена");
         tg.close();
     }
 
     function addSlot() {
-        const city = document.getElementById('aCity').value || 'Офлайн';
-        const dateRaw = document.getElementById('aDate').value;
-        if (!dateRaw) return alert("Выберите дату");
+        const city = document.getElementById('a-city').value || 'Офлайн';
+        const dateIn = document.getElementById('a-date').value;
+        if (!dateIn) return alert("Выберите дату");
 
-        const dt = new Date(dateRaw);
-        const dateStr = dt.toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
+        const formatted = new Date(dateIn).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
 
-        fetch(URL, {
+        fetch(API, {
             method: 'POST',
-            body: JSON.stringify({ action: 'addSlot', city: city, date: dateStr, type: 'offline' })
+            body: JSON.stringify({ action: 'addSlot', city: city, date: formatted, type: 'offline' })
         });
 
-        // Сдвиг времени
-        dt.setMinutes(dt.getMinutes() + 80);
-        document.getElementById('aDate').value = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0,16);
-        alert("Добавлено: " + dateStr);
+        alert("Слот добавлен: " + formatted);
     }
 </script>
 </body>
