@@ -1,85 +1,106 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Запись на сессию</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        input, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; }
-        button { background: #2563eb; color: white; border: none; font-weight: bold; }
-        .slot { background: #eef2ff; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #2563eb; cursor: pointer; }
+        body { font-family: -apple-system, sans-serif; background: #f4f7f9; padding: 15px; margin: 0; color: #333; }
+        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
         .hidden { display: none; }
+        h2 { text-align: center; margin-top: 0; font-size: 1.2rem; }
+        input, button { width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
+        button { background: #2563eb; color: white; border: none; font-weight: 600; cursor: pointer; }
+        .slot-btn { background: #f1f5f9; color: #1a1a1a; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; text-align: left; }
+        #debug-id { font-size: 10px; color: #ccc; text-align: center; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-<div id="main" class="card">
-    <h2 id="title">Загрузка...</h2>
-    <div id="search-box">
-        <input type="text" id="city" placeholder="Введите город (Астана)">
-        <button onclick="search()">Показать время</button>
-    </div>
-    <div id="results" class="hidden"></div>
+<div id="screen-city" class="card">
+    <h2>Ваш город</h2>
+    <input type="text" id="city-input" placeholder="Например: Астана">
+    <button onclick="searchSlots()">Найти время</button>
+    <div id="debug-id">Ожидание Telegram ID...</div>
 </div>
 
-<div id="form" class="card hidden">
+<div id="screen-slots" class="card hidden">
+    <h2 id="city-name"></h2>
+    <div id="slots-list"></div>
+    <button onclick="location.reload()" style="background:#64748b">← Назад</button>
+</div>
+
+<div id="screen-form" class="card hidden">
     <h2>Ваши данные</h2>
-    <input type="text" id="name" placeholder="Имя">
-    <input type="tel" id="phone" placeholder="Телефон">
-    <button onclick="book()">Записаться</button>
+    <input type="text" id="u-name" placeholder="Имя">
+    <input type="tel" id="u-phone" placeholder="Телефон">
+    <button onclick="book()">Подтвердить запись</button>
+</div>
+
+<div id="screen-admin" class="card hidden">
+    <h2>Админ-панель</h2>
+    <input type="text" id="a-city" placeholder="Город">
+    <input type="datetime-local" id="a-date">
+    <button onclick="addSlot()">Добавить слот</button>
+    <button onclick="location.reload()" style="background:#64748b">Выход</button>
 </div>
 
 <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxxriHN93W03GWL8TdadbjY9-EFDjoGIplBjg_g3xxNw2THFLQfOlPdiglomrr540Qdyg/exec';
+    // ВСТАВЬТЕ ВАШУ ССЫЛКУ /EXEC НИЖЕ
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwzexgn1XRNwzOzB8fvakRtDwlWxgxjbThuZUvNe3cA41Ljx57lBwKaonOu-F30P9rh6Q/exec';
+    
     const tg = window.Telegram.WebApp;
-    let db = [];
+    tg.expand();
+
+    let database = [];
     let selected = null;
 
-    // Функция загрузки с обходом блокировок
-    async function load() {
-        try {
-            const r = await fetch(API_URL);
-            db = await r.json();
-            document.getElementById('title').innerText = "Ваш город";
-        } catch (e) {
-            document.getElementById('title').innerText = "Ошибка (попробуйте обновить)";
-        }
+    // Выводим ID для проверки (если 0 - открыто не через бота)
+    const currentUserId = tg.initDataUnsafe?.user?.id || 0;
+    document.getElementById('debug-id').innerText = "Ваш Telegram ID: " + currentUserId;
+
+    async function loadData() {
+        const res = await fetch(API_URL + "?t=" + Date.now());
+        database = await res.json();
     }
-    load();
+    loadData();
 
-    function search() {
-        const val = document.getElementById('city').value.trim().toLowerCase();
-        if(val === 'admin123') { /* здесь можно открыть админку */ return; }
-        
-        const found = db.filter(x => x.city.toLowerCase() === val);
-        const resDiv = document.getElementById('results');
-        resDiv.innerHTML = "";
-        resDiv.classList.remove('hidden');
-
-        if(found.length === 0) {
-            resDiv.innerHTML = "<p>Мест нет</p>";
-        } else {
-            found.forEach(s => {
-                const d = document.createElement('div');
-                d.className = 'slot';
-                d.innerText = s.date;
-                d.onclick = () => {
-                    selected = s;
-                    document.getElementById('main').classList.add('hidden');
-                    document.getElementById('form').classList.remove('hidden');
-                };
-                resDiv.appendChild(d);
-            });
+    function searchSlots() {
+        const city = document.getElementById('city-input').value.trim();
+        if (city.toLowerCase() === 'admin123') {
+            document.getElementById('screen-city').classList.add('hidden');
+            document.getElementById('screen-admin').classList.remove('hidden');
+            return;
         }
+
+        document.getElementById('screen-city').classList.add('hidden');
+        document.getElementById('screen-slots').classList.remove('hidden');
+        document.getElementById('city-name').innerText = city;
+
+        const list = document.getElementById('slots-list');
+        const found = database.filter(x => x.city.toLowerCase() === city.toLowerCase());
+        
+        list.innerHTML = found.length ? "" : "<p style='text-align:center'>Мест нет</p>";
+        found.forEach(item => {
+            const btn = document.createElement('button');
+            btn.className = 'slot-btn';
+            btn.innerHTML = `<span>${item.date}</span> <b>→</b>`;
+            btn.onclick = () => {
+                selected = item;
+                document.getElementById('screen-slots').classList.add('hidden');
+                document.getElementById('screen-form').classList.remove('hidden');
+            };
+            list.appendChild(btn);
+        });
     }
 
     async function book() {
-        const n = document.getElementById('name').value;
-        const p = document.getElementById('phone').value;
-        if(!n || !p) return alert("Заполни поля");
+        const name = document.getElementById('u-name').value;
+        const phone = document.getElementById('u-phone').value;
+        if (!name || !phone) return alert("Заполните данные");
 
+        // Отправка данных в таблицу 
         await fetch(API_URL, {
             method: 'POST',
             body: JSON.stringify({
@@ -87,15 +108,30 @@
                 slot: selected.date,
                 city: selected.city,
                 type: selected.type,
-                name: n,
-                phone: p,
-                tg_id: tg.initDataUnsafe?.user?.id || '0'
+                name: name,
+                phone: phone,
+                tg_id: currentUserId // Отправляем реальный ID
             })
         });
 
-        alert("Записано!");
+        alert("Заявка принята!");
+        // Сигнал боту Salebot 
         tg.sendData("ЗаявкаОформлена");
         tg.close();
+    }
+
+    async function addSlot() {
+        const city = document.getElementById('a-city').value || "Офлайн";
+        const dateRaw = document.getElementById('a-date').value;
+        if (!dateRaw) return alert("Выбери дату");
+
+        const dateStr = new Date(dateRaw).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
+
+        await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'addSlot', city: city, date: dateStr, type: 'offline' })
+        });
+        alert("Добавлено: " + dateStr);
     }
 </script>
 </body>
