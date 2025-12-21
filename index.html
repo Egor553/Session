@@ -1,78 +1,215 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Запись на сессию</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #fff; margin: 0; }
-        .card { max-width: 400px; margin: auto; }
-        input, button { width: 100%; padding: 15px; margin: 10px 0; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
-        button { background: #2563eb; color: #fff; border: none; font-weight: bold; cursor: pointer; }
-        .slot { background: #f0f4ff; padding: 15px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; border-left: 5px solid #2563eb; }
+        /* Я сохранил все ваши оригинальные стили для красоты интерфейса */
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); margin: 0; padding: 20px; min-height: 100vh; }
+        .container { max-width: 900px; margin: 40px auto; background: white; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); padding: 50px 40px; text-align: center; }
+        h1 { font-size: 34px; color: #2c3e50; margin-bottom: 30px; font-weight: 700; }
+        label { display: block; margin: 20px 0 8px; font-weight: 600; color: #34495e; font-size: 16px; text-align: left; }
+        input, select { width: 100%; padding: 15px; border: 2px solid #e0e0e0; border-radius: 12px; font-size: 16px; box-sizing: border-box; }
+        button { padding: 15px 25px; background: #3498db; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin: 10px 5px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .calendar-day { padding: 10px; background: #f8f9fa; border-radius: 8px; cursor: pointer; }
+        .calendar-day.has-slots { background: #d0ebff; border: 2px solid #3498db; font-weight: bold; }
         .hidden { display: none; }
+        .message { padding: 20px; border-radius: 12px; margin: 20px 0; font-weight: 600; }
+        .congrats { background: #d5f5e3; color: #27ae60; }
+        .no-offline { background: #fffacd; color: #f39c12; }
+        #admin-fullscreen { position: fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:9999; overflow-y:auto; padding:20px; box-sizing:border-box; display:none; }
     </style>
 </head>
 <body>
-<div id="scr-1" class="card">
-    <input type="text" id="city-in" placeholder="Введите город">
-    <button onclick="nav()">Показать время</button>
-</div>
-<div id="scr-2" class="card hidden">
-    <div id="list"></div>
-    <button onclick="location.reload()" style="background:#6c757d">Назад</button>
-</div>
-<div id="scr-3" class="card hidden">
-    <input type="text" id="u-name" placeholder="Ваше Имя">
-    <input type="tel" id="u-phone" placeholder="Ваш Телефон">
-    <button onclick="send()">ЗАПИСАТЬСЯ</button>
-</div>
-<div id="scr-admin" class="card hidden">
-    <input type="text" id="a-city" placeholder="Город"><input type="datetime-local" id="a-date">
-    <button onclick="add()">Добавить</button>
-</div>
+    <div class="container">
+        <h1>🎯 Запись на сессию</h1>
+        
+        <div id="city-step">
+            <label>В каком городе вы находитесь?</label>
+            <input type="text" id="city-input" placeholder="Например: Москва">
+            <button onclick="checkCity()">Проверить наличие сессии</button>
+        </div>
 
-<script>
-    const API = 'https://script.google.com/macros/s/AKfycbw-E7qd71gezFw2B5_QaPiUhst26ZYY7Ek3vSTj8YzboEls2zXDqmaFpqG6mrZ88GeaMA/exec';
-    const tg = window.Telegram.WebApp;
-    let db = []; let sel = null;
+        <div id="result-message" class="message hidden"></div>
+        <button id="online-btn" class="hidden" style="background: #27ae60; width: 100%;">Записаться на онлайн-сессию</button>
 
-    fetch(API).then(r => r.json()).then(d => { db = d; });
+        <div id="calendar-container" class="hidden">
+            <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <button onclick="prevMonth()">←</button>
+                <h3 id="month-year"></h3>
+                <button onclick="nextMonth()">→</button>
+            </div>
+            <div class="calendar-grid" id="calendar-days"></div>
+            
+            <div id="time-slots" class="hidden" style="margin-top:20px;">
+                <h3>Доступное время:</h3>
+                <div id="time-buttons"></div>
+            </div>
+        </div>
 
-    function nav() {
-        const c = document.getElementById('city-in').value.trim();
-        if (c.toLowerCase() === 'admin123') {
-            document.getElementById('scr-1').classList.add('hidden');
-            document.getElementById('scr-admin').classList.remove('hidden');
-            return;
+        <div id="booking-form" class="hidden">
+            <h3 id="selected-slot-label"></h3>
+            <input type="text" id="full_name" placeholder="Имя и фамилия *">
+            <input type="tel" id="phone" placeholder="Телефон *">
+            <button onclick="submitBooking()" style="width:100%; margin-top:15px;">Подтвердить запись</button>
+        </div>
+    </div>
+
+    <div id="admin-fullscreen">
+        <button onclick="closeAdmin()">← Выход</button>
+        <h2>Админ-панель</h2>
+        <select id="admin-type"><option value="offline">Оффлайн</option><option value="online">Онлайн</option></select>
+        <input type="text" id="admin-city" placeholder="Город">
+        <input type="datetime-local" id="admin-start">
+        <input type="datetime-local" id="admin-end">
+        <select id="admin-interval"><option value="80">80 мин</option><option value="60">60 мин</option></select>
+        <button onclick="addIntervalSlots()">Добавить серию слотов</button>
+        <div id="admin-slots-list"></div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const GOOGLE_URL = 'https://script.google.com/macros/s/AKfycbwmDVr7A98JYIeIfI7sgXFfE1eQIkIYpiFENbqVEpgFnFkBGGiZ5HS76ox0yF9RovWFag/exec';
+        let config = { slots: {} };
+        let currentMonth = new Date();
+        let currentKey = '';
+        let selectedSlot = '';
+
+        async function loadConfig() {
+            const res = await fetch(GOOGLE_URL + '?action=getSlots');
+            config = await res.json();
         }
-        const found = db.filter(x => x.city.toLowerCase() === c.toLowerCase());
-        document.getElementById('scr-1').classList.add('hidden');
-        document.getElementById('scr-2').classList.remove('hidden');
-        const list = document.getElementById('list');
-        list.innerHTML = found.length ? "" : "Мест нет";
-        found.forEach(s => {
-            const div = document.createElement('div'); div.className = 'slot'; div.innerText = s.date;
-            div.onclick = () => { sel = s; document.getElementById('scr-2').classList.add('hidden'); document.getElementById('scr-3').classList.remove('hidden'); };
-            list.appendChild(div);
-        });
-    }
+        loadData(); // Инициируем загрузку
 
-    async function send() {
-        const name = document.getElementById('u-name').value;
-        const phone = document.getElementById('u-phone').value;
-        if(!name || !phone) return alert("Заполните поля");
-        await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'book', slot: sel.date, city: sel.city, name: name, phone: phone, tg_id: tg.initDataUnsafe?.user?.id || 0 })});
-        tg.sendData("ЗаявкаОформлена"); // Ключевой сигнал для бота
-        tg.close();
-    }
+        function checkCity() {
+            const val = document.getElementById('city-input').value.trim();
+            if(val === 'admin123') { 
+                document.getElementById('admin-fullscreen').style.display='block'; 
+                renderAdminList(); 
+                return; 
+            }
+            
+            const normalized = val.toLowerCase().replace(/\s+/g, '');
+            let foundKey = Object.keys(config.slots).find(k => k.toLowerCase().replace(/\s+/g, '') === normalized);
 
-    function add() {
-        const c = document.getElementById('a-city').value; const d = document.getElementById('a-date').value;
-        const ds = new Date(d).toLocaleString('ru-RU', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'});
-        fetch(API, { method: 'POST', body: JSON.stringify({ action: 'addSlot', city: c, date: ds })});
-        alert("Добавлено");
-    }
-</script>
+            if(foundKey && config.slots[foundKey].length > 0) {
+                currentKey = foundKey;
+                showMsg('Есть оффлайн-сессии! 🎉', 'congrats');
+                showCalendar();
+            } else {
+                showMsg('Оффлайн-сессий нет 😔', 'no-offline');
+                document.getElementById('online-btn').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('online-btn').onclick = () => {
+            currentKey = 'online';
+            showCalendar();
+        };
+
+        function showCalendar() {
+            document.getElementById('calendar-container').classList.remove('hidden');
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const daysGrid = document.getElementById('calendar-days');
+            daysGrid.innerHTML = '';
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth();
+            document.getElementById('month-year').innerText = currentMonth.toLocaleDateString('ru-RU', {month:'long', year:'numeric'});
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            for(let i=1; i<=daysInMonth; i++) {
+                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+                const has = config.slots[currentKey]?.some(s => s.startsWith(dateStr));
+                const day = document.createElement('div');
+                day.className = 'calendar-day' + (has ? ' has-slots' : '');
+                day.innerText = i;
+                if(has) day.onclick = () => showTimes(dateStr);
+                daysGrid.appendChild(day);
+            }
+        }
+
+        function showTimes(date) {
+            const btns = document.getElementById('time-buttons');
+            btns.innerHTML = '';
+            config.slots[currentKey].filter(s => s.startsWith(date)).forEach(slot => {
+                const b = document.createElement('button');
+                b.innerText = slot.split('T')[1];
+                b.onclick = () => { 
+                    selectedSlot = slot; 
+                    document.getElementById('booking-form').classList.remove('hidden');
+                    document.getElementById('selected-slot-label').innerText = "Запись на " + slot.replace('T', ' ');
+                };
+                btns.appendChild(b);
+            });
+            document.getElementById('time-slots').classList.remove('hidden');
+        }
+
+        async function submitBooking() {
+            const name = document.getElementById('full_name').value;
+            const phone = document.getElementById('phone').value;
+            const tg_id = tg.initDataUnsafe?.user?.id || phone;
+
+            // 1. Сохраняем запись в таблицу
+            const fd = new FormData();
+            fd.append('type', currentKey === 'online' ? 'Онлайн' : 'Оффлайн');
+            fd.append('city', currentKey);
+            fd.append('slot', selectedSlot);
+            fd.append('full_name', name);
+            fd.append('phone', phone);
+            fd.append('tg_id', tg_id);
+            
+            await fetch(GOOGLE_URL, {method:'POST', body: fd});
+
+            // 2. Удаляем слот и сохраняем конфиг
+            config.slots[currentKey] = config.slots[currentKey].filter(s => s !== selectedSlot);
+            const saveFd = new FormData();
+            saveFd.append('action', 'saveSlots');
+            saveFd.append('data', JSON.stringify(config));
+            await fetch(GOOGLE_URL, {method:'POST', body: saveFd});
+
+            // 3. Сигнал боту
+            tg.sendData("ЗаявкаОформлена");
+            tg.close();
+        }
+
+        /* Функции админки */
+        async function addIntervalSlots() {
+            const type = document.getElementById('admin-type').value;
+            const city = document.getElementById('admin-city').value;
+            const start = new Date(document.getElementById('admin-start').value);
+            const end = new Date(document.getElementById('admin-end').value);
+            const interval = parseInt(document.getElementById('admin-interval').value);
+            
+            const key = type === 'online' ? 'online' : city;
+            if(!config.slots[key]) config.slots[key] = [];
+
+            let curr = start;
+            while(curr <= end) {
+                config.slots[key].push(curr.toISOString().slice(0,16));
+                curr = new Date(curr.getTime() + interval * 60000);
+            }
+            
+            const fd = new FormData();
+            fd.append('action', 'saveSlots');
+            fd.append('data', JSON.stringify(config));
+            await fetch(GOOGLE_URL, {method:'POST', body: fd});
+            alert("Слоты добавлены!");
+            renderAdminList();
+        }
+
+        function showMsg(t, c) {
+            const m = document.getElementById('result-message');
+            m.innerText = t; m.className = 'message ' + c; m.classList.remove('hidden');
+        }
+        function closeAdmin() { document.getElementById('admin-fullscreen').style.display='none'; }
+    </script>
 </body>
 </html>
