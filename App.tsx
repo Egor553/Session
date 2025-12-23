@@ -11,7 +11,7 @@ const Spinner = ({ size = 'md', color = 'blue' }: { size?: 'sm' | 'md' | 'lg', c
   const colorClass = color === 'blue' ? 'border-blue-500/20 border-t-blue-500' : 'border-white/20 border-t-white';
   return (
     <div className="flex justify-center items-center">
-      <div className={`${sizes[size]} ${colorClass} rounded-full animate-spinner`}></div>
+      <div className={`${sizes[size]} ${colorClass} rounded-full animate-spin`}></div>
     </div>
   );
 };
@@ -19,7 +19,14 @@ const Spinner = ({ size = 'md', color = 'blue' }: { size?: 'sm' | 'md' | 'lg', c
 const Header = ({ title, onBack }: { title: string; onBack?: () => void }) => (
   <header className="px-6 py-5 flex items-center bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100">
     {onBack && (
-      <button onClick={onBack} className="mr-4 p-2 -ml-2 text-gray-400 active:scale-90 transition-transform" type="button">
+      <button 
+        onClick={() => {
+          if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+          onBack();
+        }} 
+        className="mr-4 p-2 -ml-2 text-gray-400 active:scale-90 transition-transform" 
+        type="button"
+      >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M15 19l-7-7 7-7" />
         </svg>
@@ -46,8 +53,14 @@ const CalendarGrid = ({ availableDates, selectedDate, onDateSelect }: {
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   const offset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
-  const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
+  const prevMonth = () => {
+    if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+    setViewDate(new Date(year, month - 1, 1));
+  };
+  const nextMonth = () => {
+    if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+    setViewDate(new Date(year, month + 1, 1));
+  };
 
   const isAvailable = (day: number) => {
     const d = new Date(year, month, day).toDateString();
@@ -90,7 +103,10 @@ const CalendarGrid = ({ availableDates, selectedDate, onDateSelect }: {
             <button
               key={day}
               disabled={!available}
-              onClick={() => onDateSelect(new Date(year, month, day).toDateString())}
+              onClick={() => {
+                if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                onDateSelect(new Date(year, month, day).toDateString());
+              }}
               className={`
                 relative aspect-square flex flex-col items-center justify-center rounded-2xl text-sm font-bold transition-all
                 ${selected ? 'bg-blue-500 text-white shadow-lg shadow-blue-200 z-10 scale-110' : 
@@ -164,16 +180,36 @@ const App: React.FC = () => {
     if (!input) return;
 
     if (input.toLowerCase() === 'admin123') {
+      if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
       setCurrentScreen(Screen.ADMIN);
       return;
     }
 
-    const cityKey = Object.keys(allSlots).find(k => k.toLowerCase() === input.toLowerCase() && k !== 'online');
-    setMatchedCity(cityKey || null);
-    setCityChecked(true);
-    
-    if (window.Telegram?.WebApp?.HapticFeedback) {
-      window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    setActionLoading(true);
+    setTimeout(() => {
+      const cityKey = Object.keys(allSlots).find(k => k.toLowerCase() === input.toLowerCase() && k !== 'online');
+      setMatchedCity(cityKey || null);
+      setCityChecked(true);
+      setActionLoading(false);
+      
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+      }
+    }, 400);
+  };
+
+  const handleFinish = () => {
+    if (window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+      
+      // Попытка отправить данные и закрыть
+      try {
+        tg.sendData("Заявка создана");
+      } catch (e) {
+        // Если sendData не поддерживается (открыто не через кнопку клавиатуры), просто закрываем
+        tg.close();
+      }
     }
   };
 
@@ -217,11 +253,11 @@ const App: React.FC = () => {
         if (window.Telegram?.WebApp?.HapticFeedback) {
           window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         }
-        // Removed automatic close to allow user to see the success button
       } else {
         throw new Error('Booking failed');
       }
     } catch (err) {
+      if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
       alert('Ошибка при сохранении записи.');
     } finally {
       setActionLoading(false);
@@ -258,6 +294,7 @@ const App: React.FC = () => {
     
     const success = await saveSlots(updatedAllSlots);
     if (success) {
+      if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
       setAllSlots(updatedAllSlots);
       alert('Слоты успешно добавлены!');
       setCurrentScreen(Screen.CITY_SELECT);
@@ -306,16 +343,11 @@ const App: React.FC = () => {
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg>
           </div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight">Вы записаны!</h2>
-          <p className="text-gray-500 font-bold max-w-[240px]">Ожидайте сообщения с подтверждением в боте.</p>
+          <p className="text-gray-500 font-bold max-w-[240px]">Нажмите кнопку ниже, чтобы отправить подтверждение.</p>
         </div>
         
         <button 
-          onClick={() => {
-            if (window.Telegram?.WebApp?.HapticFeedback) {
-              window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-            }
-            window.Telegram?.WebApp?.close();
-          }}
+          onClick={handleFinish}
           className="w-full max-w-xs py-5 rounded-3xl bg-blue-500 text-white font-black text-xl shadow-xl shadow-blue-100 active:scale-95 transition-all"
         >
           Завершить
@@ -343,26 +375,38 @@ const App: React.FC = () => {
           <div className="w-full space-y-6">
             {!cityChecked ? (
               <div className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Ваш город..."
-                  value={cityInput}
-                  onChange={(e) => setCityInput(e.target.value)}
-                  className="w-full p-6 rounded-3xl bg-gray-50 border-2 border-transparent focus:border-blue-500 outline-none font-black text-center text-xl transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Ваш город..."
+                    value={cityInput}
+                    onChange={(e) => setCityInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && checkCity()}
+                    className="w-full p-6 rounded-3xl bg-gray-50 border-2 border-transparent focus:border-blue-500 outline-none font-black text-center text-xl transition-all"
+                  />
+                  {actionLoading && (
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2">
+                      <Spinner size="sm" />
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={checkCity}
                   disabled={!cityInput.trim() || actionLoading}
                   className="w-full py-5 rounded-3xl bg-blue-500 text-white font-black text-xl shadow-xl active:scale-95 transition-all"
                 >
-                  {actionLoading ? <Spinner color="white" /> : 'Найти окна'}
+                  {actionLoading ? 'Поиск...' : 'Найти окна'}
                 </button>
               </div>
             ) : (
               <div className="space-y-4 animate-fade-in">
                 {matchedCity ? (
                   <button
-                    onClick={() => { setSelectedCity(matchedCity); setCurrentScreen(Screen.CALENDAR); }}
+                    onClick={() => { 
+                      if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                      setSelectedCity(matchedCity); 
+                      setCurrentScreen(Screen.CALENDAR); 
+                    }}
                     className="w-full p-6 rounded-[2rem] bg-white border-2 border-blue-500 text-blue-600 font-black flex items-center justify-between active:scale-95 shadow-sm"
                   >
                     <span>📍 {matchedCity}</span>
@@ -374,13 +418,23 @@ const App: React.FC = () => {
                   </div>
                 )}
                 <button
-                  onClick={() => { setSelectedCity('online'); setCurrentScreen(Screen.CALENDAR); }}
+                  onClick={() => { 
+                    if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                    setSelectedCity('online'); 
+                    setCurrentScreen(Screen.CALENDAR); 
+                  }}
                   className="w-full p-6 rounded-[2rem] bg-blue-500 text-white font-black flex items-center justify-between shadow-xl active:scale-95"
                 >
                   <span>🌐 Онлайн сессия</span>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6" /></svg>
                 </button>
-                <button onClick={() => setCityChecked(false)} className="w-full py-4 text-gray-400 font-black text-xs uppercase tracking-widest text-center">
+                <button 
+                  onClick={() => {
+                    if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                    setCityChecked(false);
+                  }} 
+                  className="w-full py-4 text-gray-400 font-black text-xs uppercase tracking-widest text-center"
+                >
                   Сменить город
                 </button>
               </div>
@@ -432,7 +486,10 @@ const App: React.FC = () => {
           {selectedSlot && (
             <div className="p-6 border-t border-gray-100 bg-white/90 backdrop-blur-md sticky bottom-0">
               <button
-                onClick={() => setCurrentScreen(Screen.BOOKING_FORM)}
+                onClick={() => {
+                  if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                  setCurrentScreen(Screen.BOOKING_FORM);
+                }}
                 className="w-full py-5 rounded-2xl bg-blue-500 text-white font-black text-xl shadow-xl active:scale-95 transition-all"
               >
                 Продолжить
@@ -483,7 +540,7 @@ const App: React.FC = () => {
             <button
               onClick={handleBooking}
               disabled={actionLoading || !formData.name || !formData.phone}
-              className="w-full py-6 rounded-3xl bg-blue-600 text-white font-black text-xl shadow-xl disabled:opacity-50"
+              className="w-full py-6 rounded-3xl bg-blue-600 text-white font-black text-xl shadow-xl disabled:opacity-50 active:scale-95 transition-all"
             >
               {actionLoading ? <Spinner color="white" /> : 'Записаться'}
             </button>
@@ -499,11 +556,17 @@ const App: React.FC = () => {
               <h3 className="text-xl font-black text-gray-900 px-1">Генератор слотов</h3>
               <div className="flex bg-gray-100 p-1 rounded-2xl">
                 <button 
-                  onClick={() => setAdminConfig({...adminConfig, type: 'Offline'})}
+                  onClick={() => {
+                    if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                    setAdminConfig({...adminConfig, type: 'Offline'});
+                  }}
                   className={`flex-1 py-4 rounded-xl font-black text-sm transition-all ${adminConfig.type === 'Offline' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}
                 >📍 Оффлайн</button>
                 <button 
-                  onClick={() => setAdminConfig({...adminConfig, type: 'Online'})}
+                  onClick={() => {
+                    if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                    setAdminConfig({...adminConfig, type: 'Online'});
+                  }}
                   className={`flex-1 py-4 rounded-xl font-black text-sm transition-all ${adminConfig.type === 'Online' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}
                 >🌐 Онлайн</button>
               </div>
